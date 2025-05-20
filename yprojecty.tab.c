@@ -177,7 +177,7 @@
     }
     
 
-#line 181 ".\\yprojecty.tab.c"
+#line 181 "yprojecty.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -200,7 +200,95 @@
 #  endif
 # endif
 
-#include "yprojecty.tab.h"
+
+/* Debug traces.  */
+#ifndef YYDEBUG
+# define YYDEBUG 1
+#endif
+#if YYDEBUG
+extern int yydebug;
+#endif
+
+/* Token kinds.  */
+#ifndef YYTOKENTYPE
+# define YYTOKENTYPE
+  enum yytokentype
+  {
+    YYEMPTY = -2,
+    YYEOF = 0,                     /* "end of file"  */
+    YYerror = 256,                 /* error  */
+    YYUNDEF = 257,                 /* "invalid token"  */
+    BOOL = 258,                    /* BOOL  */
+    BREAK = 259,                   /* BREAK  */
+    CASE = 260,                    /* CASE  */
+    CHAR = 261,                    /* CHAR  */
+    CONST = 262,                   /* CONST  */
+    CONTINUE = 263,                /* CONTINUE  */
+    DEFAULT = 264,                 /* DEFAULT  */
+    DO = 265,                      /* DO  */
+    DOUBLE = 266,                  /* DOUBLE  */
+    ELSE = 267,                    /* ELSE  */
+    EXTERN = 268,                  /* EXTERN  */
+    FALSE_TOKEN = 269,             /* FALSE_TOKEN  */
+    FLOAT = 270,                   /* FLOAT  */
+    FOR = 271,                     /* FOR  */
+    FOREACH = 272,                 /* FOREACH  */
+    IF = 273,                      /* IF  */
+    INT = 274,                     /* INT  */
+    PRINT = 275,                   /* PRINT  */
+    PRINTLN = 276,                 /* PRINTLN  */
+    READ = 277,                    /* READ  */
+    RETURN = 278,                  /* RETURN  */
+    STRING = 279,                  /* STRING  */
+    SWITCH = 280,                  /* SWITCH  */
+    TRUE_TOKEN = 281,              /* TRUE_TOKEN  */
+    VOID = 282,                    /* VOID  */
+    WHILE = 283,                   /* WHILE  */
+    ID = 284,                      /* ID  */
+    INT_LITERAL = 285,             /* INT_LITERAL  */
+    REAL_LITERAL = 286,            /* REAL_LITERAL  */
+    STRING_LITERAL = 287,          /* STRING_LITERAL  */
+    MAIN = 288,                    /* MAIN  */
+    PLUS_PLUS = 289,               /* PLUS_PLUS  */
+    MINUS_MINUS = 290,             /* MINUS_MINUS  */
+    LESS_EQUAL = 291,              /* LESS_EQUAL  */
+    GREATER_EQUAL = 292,           /* GREATER_EQUAL  */
+    EQUAL = 293,                   /* EQUAL  */
+    NOT_EQUAL = 294,               /* NOT_EQUAL  */
+    AND_AND = 295,                 /* AND_AND  */
+    OR_OR = 296,                   /* OR_OR  */
+    DOT_DOT = 297,                 /* DOT_DOT  */
+    UMINUS = 298                   /* UMINUS  */
+  };
+  typedef enum yytokentype yytoken_kind_t;
+#endif
+
+/* Value type.  */
+#if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
+union YYSTYPE
+{
+#line 121 ".\\yprojecty.y"
+
+    int ivalue;
+    float fvalue;
+    char* svalue;
+
+#line 277 "yprojecty.tab.c"
+
+};
+typedef union YYSTYPE YYSTYPE;
+# define YYSTYPE_IS_TRIVIAL 1
+# define YYSTYPE_IS_DECLARED 1
+#endif
+
+
+extern YYSTYPE yylval;
+
+
+int yyparse (void);
+
+
+
 /* Symbol kind.  */
 enum yysymbol_kind_t
 {
@@ -1688,7 +1776,7 @@ yyreduce:
     {
         printf("Program parsed successfully.\n");
     }
-#line 1692 ".\\yprojecty.tab.c"
+#line 1780 "yprojecty.tab.c"
     break;
 
   case 3: /* program: main_function_declaration  */
@@ -1696,7 +1784,7 @@ yyreduce:
     {
         printf("Program parsed successfully without pre main.\n");
     }
-#line 1700 ".\\yprojecty.tab.c"
+#line 1788 "yprojecty.tab.c"
     break;
 
   case 9: /* function_declaration: type ID '(' parameter_list ')' block  */
@@ -1704,7 +1792,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[-4].svalue));
     }
-#line 1708 ".\\yprojecty.tab.c"
+#line 1796 "yprojecty.tab.c"
     break;
 
   case 10: /* function_declaration: type ID '(' ')' block  */
@@ -1712,7 +1800,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[-3].svalue));
     }
-#line 1716 ".\\yprojecty.tab.c"
+#line 1804 "yprojecty.tab.c"
     break;
 
   case 14: /* const_declaration: CONST type ID '=' const_expression ';'  */
@@ -1720,7 +1808,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[-3].svalue));
     }
-#line 1724 ".\\yprojecty.tab.c"
+#line 1812 "yprojecty.tab.c"
     break;
 
   case 15: /* variable_declaration: type identifier_list ';'  */
@@ -1728,7 +1816,7 @@ yyreduce:
                             {
         printf("Variable declaration parsed successfully.\n");
     }
-#line 1732 ".\\yprojecty.tab.c"
+#line 1820 "yprojecty.tab.c"
     break;
 
   case 18: /* identifier_decl: ID  */
@@ -1736,7 +1824,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[0].svalue));
     }
-#line 1740 ".\\yprojecty.tab.c"
+#line 1828 "yprojecty.tab.c"
     break;
 
   case 19: /* identifier_decl: ID '=' expression  */
@@ -1744,7 +1832,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[-2].svalue));
     }
-#line 1748 ".\\yprojecty.tab.c"
+#line 1836 "yprojecty.tab.c"
     break;
 
   case 20: /* array_declaration: type ID array_size_or_location ';'  */
@@ -1752,7 +1840,7 @@ yyreduce:
     {
         insert_symbol((yyvsp[-2].svalue));
     }
-#line 1756 ".\\yprojecty.tab.c"
+#line 1844 "yprojecty.tab.c"
     break;
 
   case 27: /* left_brace: '{'  */
@@ -1761,7 +1849,7 @@ yyreduce:
         printf("Entering new block.\n");
         enter_new_table();
     }
-#line 1765 ".\\yprojecty.tab.c"
+#line 1853 "yprojecty.tab.c"
     break;
 
   case 28: /* right_brace: '}'  */
@@ -1771,7 +1859,7 @@ yyreduce:
         dump_current_table();
         leave_table();
     }
-#line 1775 ".\\yprojecty.tab.c"
+#line 1863 "yprojecty.tab.c"
     break;
 
   case 49: /* variable_assignment: ID '=' expression  */
@@ -1782,7 +1870,7 @@ yyreduce:
             YYERROR;
         }
     }
-#line 1786 ".\\yprojecty.tab.c"
+#line 1874 "yprojecty.tab.c"
     break;
 
   case 50: /* variable_assignment: ID array_size_or_location '=' expression  */
@@ -1793,11 +1881,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 1797 ".\\yprojecty.tab.c"
+#line 1885 "yprojecty.tab.c"
     break;
 
 
-#line 1801 ".\\yprojecty.tab.c"
+#line 1889 "yprojecty.tab.c"
 
       default: break;
     }
@@ -2034,3 +2122,4 @@ int main() {
     printf("Parser finished.\n");
     return 0;
 }
+LESS_EQUAL
