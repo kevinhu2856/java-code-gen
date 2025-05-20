@@ -380,4 +380,3 @@ int main() {
     printf("Parser finished.\n");
     return 0;
 }
-LESS_EQUAL
