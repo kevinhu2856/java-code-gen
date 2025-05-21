@@ -182,11 +182,23 @@
             return;
         }
         while (symbols != NULL) {
-            printf("Symbol: %s, Type: %s, Line: %d", 
+            printf("Symbol: %s, Type: %s, Line: %d, ", 
                   symbols->name, 
                   type_to_string(symbols->type), 
                   symbols->line);
-            
+            if(symbols->type == TYPE_INT) {
+                printf("Value: %d", symbols->value.ivalue);
+            } else if(symbols->type == TYPE_FLOAT) {
+                printf("Value: %f", symbols->value.fvalue);
+            } else if(symbols->type == TYPE_BOOL) {
+                if(symbols->value.bvalue) {
+                    printf("Value: true");
+                } else {
+                    printf("Value: false");
+                }
+            } else if(symbols->type == TYPE_STRING) {
+                printf("Value: %s", symbols->value.svalue);
+            }
             if (symbols->is_const) printf(", Constant");
             if (symbols->is_function) printf(", Function");
             if (symbols->type == TYPE_ARRAY) {
@@ -412,7 +424,7 @@
     }
     
 
-#line 416 "yprojecty.tab.c"
+#line 428 "yprojecty.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -939,18 +951,18 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   378,   378,   382,   389,   390,   394,   395,   396,   406,
-     410,   403,   424,   428,   421,   441,   446,   445,   455,   461,
-     454,   473,   472,   480,   485,   485,   489,   493,   508,   506,
-     516,   524,   535,   537,   539,   541,   543,   548,   547,   558,
-     557,   567,   568,   572,   573,   574,   575,   576,   577,   578,
-     579,   583,   584,   585,   586,   589,   590,   591,   592,   595,
-     612,   631,   644,   659,   660,   665,   666,   669,   669,   672,
-     676,   680,   675,   690,   693,   689,   704,   707,   703,   728,
-     729,   733,   746,   762,   778,   794,   812,   825,   841,   848,
-     854,   860,   866,   872,   878,   884,   890,   895,   899,   903,
-     907,   911,   915,   918,   927,   928,   933,   945,   956,   967,
-     981,   995
+       0,   390,   390,   394,   401,   402,   406,   407,   408,   418,
+     422,   415,   436,   440,   433,   453,   458,   457,   467,   473,
+     466,   485,   484,   492,   497,   497,   501,   505,   530,   528,
+     538,   546,   557,   559,   561,   563,   565,   570,   569,   580,
+     579,   589,   590,   594,   595,   596,   597,   598,   599,   600,
+     601,   605,   606,   607,   608,   611,   612,   613,   614,   617,
+     645,   664,   677,   692,   693,   698,   699,   702,   702,   705,
+     709,   713,   708,   723,   726,   722,   737,   740,   736,   761,
+     762,   766,   779,   795,   811,   827,   845,   858,   874,   881,
+     887,   893,   899,   905,   911,   917,   923,   928,   932,   936,
+     940,   944,   948,   951,   960,   961,   966,   978,   989,  1000,
+    1014,  1028
 };
 #endif
 
@@ -1946,159 +1958,169 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* program: pre_main_declaration main_function_declaration  */
-#line 379 ".\\yprojecty.y"
+#line 391 ".\\yprojecty.y"
     {
         printf("Program parsed successfully.\n");
     }
-#line 1954 "yprojecty.tab.c"
+#line 1966 "yprojecty.tab.c"
     break;
 
   case 3: /* program: main_function_declaration  */
-#line 383 ".\\yprojecty.y"
+#line 395 ".\\yprojecty.y"
     {
         printf("Program parsed successfully without pre main.\n");
     }
-#line 1962 "yprojecty.tab.c"
+#line 1974 "yprojecty.tab.c"
     break;
 
   case 9: /* $@1: %empty  */
-#line 406 ".\\yprojecty.y"
+#line 418 ".\\yprojecty.y"
     {
         enter_new_table(1);
     }
-#line 1970 "yprojecty.tab.c"
+#line 1982 "yprojecty.tab.c"
     break;
 
   case 10: /* $@2: %empty  */
-#line 410 ".\\yprojecty.y"
+#line 422 ".\\yprojecty.y"
     {
         current_function_return_type = (yyvsp[-5].dtype);
         current_function_name = strdup((yyvsp[-4].svalue));
         insert_symbol((yyvsp[-4].svalue), (yyvsp[-5].dtype), 0, 1);
     }
-#line 1980 "yprojecty.tab.c"
+#line 1992 "yprojecty.tab.c"
     break;
 
   case 11: /* function_declaration: type ID '(' $@1 parameter_list ')' $@2 block  */
-#line 416 ".\\yprojecty.y"
+#line 428 ".\\yprojecty.y"
     {
         free(current_function_name);
         current_function_name = NULL;
     }
-#line 1989 "yprojecty.tab.c"
+#line 2001 "yprojecty.tab.c"
     break;
 
   case 12: /* $@3: %empty  */
-#line 424 ".\\yprojecty.y"
+#line 436 ".\\yprojecty.y"
     {
         enter_new_table(1);
     }
-#line 1997 "yprojecty.tab.c"
+#line 2009 "yprojecty.tab.c"
     break;
 
   case 13: /* $@4: %empty  */
-#line 428 ".\\yprojecty.y"
+#line 440 ".\\yprojecty.y"
     {
         current_function_return_type = (yyvsp[-4].dtype);
         current_function_name = strdup((yyvsp[-3].svalue));
         insert_symbol((yyvsp[-3].svalue), (yyvsp[-4].dtype), 0, 1);
     }
-#line 2007 "yprojecty.tab.c"
+#line 2019 "yprojecty.tab.c"
     break;
 
   case 14: /* function_declaration: type ID '(' $@3 ')' $@4 block  */
-#line 434 ".\\yprojecty.y"
+#line 446 ".\\yprojecty.y"
     {
         free(current_function_name);
         current_function_name = NULL;
     }
-#line 2016 "yprojecty.tab.c"
+#line 2028 "yprojecty.tab.c"
     break;
 
   case 15: /* parameter_list: type ID  */
-#line 442 ".\\yprojecty.y"
+#line 454 ".\\yprojecty.y"
     {
         insert_symbol((yyvsp[0].svalue), (yyvsp[-1].dtype), 0, 0); // Add parameter to function scope
     }
-#line 2024 "yprojecty.tab.c"
+#line 2036 "yprojecty.tab.c"
     break;
 
   case 16: /* $@5: %empty  */
-#line 446 ".\\yprojecty.y"
+#line 458 ".\\yprojecty.y"
     {
         insert_symbol((yyvsp[0].svalue), (yyvsp[-1].dtype), 0, 0); // Add parameter to function scope
     }
-#line 2032 "yprojecty.tab.c"
+#line 2044 "yprojecty.tab.c"
     break;
 
   case 18: /* $@6: %empty  */
-#line 455 ".\\yprojecty.y"
+#line 467 ".\\yprojecty.y"
     {
         current_function_return_type = TYPE_VOID;
         current_function_name = strdup("main");
         insert_symbol("main", TYPE_VOID, 0, 1);
     }
-#line 2042 "yprojecty.tab.c"
+#line 2054 "yprojecty.tab.c"
     break;
 
   case 19: /* $@7: %empty  */
-#line 461 ".\\yprojecty.y"
+#line 473 ".\\yprojecty.y"
     {
         enter_new_table(1); // Enter function scope
     }
-#line 2050 "yprojecty.tab.c"
+#line 2062 "yprojecty.tab.c"
     break;
 
   case 20: /* main_function_declaration: VOID MAIN $@6 '(' $@7 ')' block  */
-#line 465 ".\\yprojecty.y"
+#line 477 ".\\yprojecty.y"
      {
         free(current_function_name);
         current_function_name = NULL;
     }
-#line 2059 "yprojecty.tab.c"
+#line 2071 "yprojecty.tab.c"
     break;
 
   case 21: /* $@8: %empty  */
-#line 473 ".\\yprojecty.y"
+#line 485 ".\\yprojecty.y"
     {
         current_declaration_type = (yyvsp[0].dtype);
     }
-#line 2067 "yprojecty.tab.c"
+#line 2079 "yprojecty.tab.c"
     break;
 
   case 26: /* identifier_decl: ID  */
-#line 490 ".\\yprojecty.y"
+#line 502 ".\\yprojecty.y"
     {
         insert_symbol((yyvsp[0].svalue), current_declaration_type, 0, 0);
     }
-#line 2075 "yprojecty.tab.c"
+#line 2087 "yprojecty.tab.c"
     break;
 
   case 27: /* identifier_decl: ID '=' expression  */
-#line 494 ".\\yprojecty.y"
+#line 506 ".\\yprojecty.y"
     {
         insert_symbol((yyvsp[-2].svalue), current_declaration_type, 0, 0);
         if((yyvsp[0].expr_node)!=NULL&&!is_assignment_compatible(current_declaration_type, (yyvsp[0].expr_node)->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string((yyvsp[0].expr_node)->type),type_to_string(current_declaration_type), yylineno);
             YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = (yyvsp[0].expr_node)->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = (yyvsp[0].expr_node)->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = (yyvsp[0].expr_node)->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup((yyvsp[0].expr_node)->value.svalue);
+            }
         }
-        Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2089 "yprojecty.tab.c"
+#line 2111 "yprojecty.tab.c"
     break;
 
   case 28: /* $@9: %empty  */
-#line 508 ".\\yprojecty.y"
+#line 530 ".\\yprojecty.y"
     {
         current_declaration_type = (yyvsp[-1].dtype);
         insert_symbol((yyvsp[0].svalue), TYPE_ARRAY, 0, 0); // Record as array type
     }
-#line 2098 "yprojecty.tab.c"
+#line 2120 "yprojecty.tab.c"
     break;
 
   case 30: /* array_size_or_location: '[' expression ']'  */
-#line 517 ".\\yprojecty.y"
+#line 539 ".\\yprojecty.y"
     {
         if((yyvsp[-1].expr_node)->type != TYPE_INT) {
             fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
@@ -2106,11 +2128,11 @@ yyreduce:
         }
         free_expr_node((yyvsp[-1].expr_node));
     }
-#line 2110 "yprojecty.tab.c"
+#line 2132 "yprojecty.tab.c"
     break;
 
   case 31: /* array_size_or_location: '[' expression ']' array_size_or_location  */
-#line 525 ".\\yprojecty.y"
+#line 547 ".\\yprojecty.y"
     {
         if((yyvsp[-2].expr_node)->type != TYPE_INT) {
             fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
@@ -2118,75 +2140,75 @@ yyreduce:
         }
         free_expr_node((yyvsp[-2].expr_node));
     }
-#line 2122 "yprojecty.tab.c"
+#line 2144 "yprojecty.tab.c"
     break;
 
   case 32: /* type: INT  */
-#line 535 ".\\yprojecty.y"
+#line 557 ".\\yprojecty.y"
         { (yyval.dtype) = TYPE_INT; current_declaration_type = TYPE_INT; }
-#line 2128 "yprojecty.tab.c"
+#line 2150 "yprojecty.tab.c"
     break;
 
   case 33: /* type: FLOAT  */
-#line 537 ".\\yprojecty.y"
+#line 559 ".\\yprojecty.y"
           { (yyval.dtype) = TYPE_FLOAT; current_declaration_type = TYPE_FLOAT;}
-#line 2134 "yprojecty.tab.c"
+#line 2156 "yprojecty.tab.c"
     break;
 
   case 34: /* type: BOOL  */
-#line 539 ".\\yprojecty.y"
+#line 561 ".\\yprojecty.y"
          { (yyval.dtype) = TYPE_BOOL; current_declaration_type = TYPE_BOOL;}
-#line 2140 "yprojecty.tab.c"
+#line 2162 "yprojecty.tab.c"
     break;
 
   case 35: /* type: STRING  */
-#line 541 ".\\yprojecty.y"
+#line 563 ".\\yprojecty.y"
            { (yyval.dtype) = TYPE_STRING; current_declaration_type = TYPE_STRING;}
-#line 2146 "yprojecty.tab.c"
+#line 2168 "yprojecty.tab.c"
     break;
 
   case 36: /* type: VOID  */
-#line 543 ".\\yprojecty.y"
+#line 565 ".\\yprojecty.y"
          { (yyval.dtype) = TYPE_VOID; current_declaration_type = TYPE_VOID;}
-#line 2152 "yprojecty.tab.c"
+#line 2174 "yprojecty.tab.c"
     break;
 
   case 37: /* $@10: %empty  */
-#line 548 ".\\yprojecty.y"
+#line 570 ".\\yprojecty.y"
     {
         enter_new_table(0);
     }
-#line 2160 "yprojecty.tab.c"
+#line 2182 "yprojecty.tab.c"
     break;
 
   case 38: /* block: '{' $@10 statement_list '}'  */
-#line 552 ".\\yprojecty.y"
+#line 574 ".\\yprojecty.y"
     {
         dump_current_table();
         leave_table();
     }
-#line 2169 "yprojecty.tab.c"
+#line 2191 "yprojecty.tab.c"
     break;
 
   case 39: /* $@11: %empty  */
-#line 558 ".\\yprojecty.y"
+#line 580 ".\\yprojecty.y"
     {
         enter_new_table(0);
     }
-#line 2177 "yprojecty.tab.c"
+#line 2199 "yprojecty.tab.c"
     break;
 
   case 40: /* block: '{' $@11 '}'  */
-#line 561 ".\\yprojecty.y"
+#line 583 ".\\yprojecty.y"
     {
         dump_current_table();
         leave_table();
     }
-#line 2186 "yprojecty.tab.c"
+#line 2208 "yprojecty.tab.c"
     break;
 
   case 59: /* variable_assignment: ID '=' expression  */
-#line 596 ".\\yprojecty.y"
+#line 618 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
         if(sym == NULL) {
@@ -2200,14 +2222,25 @@ yyreduce:
         if((yyvsp[0].expr_node)!=NULL&&!is_assignment_compatible(sym->type, (yyvsp[0].expr_node)->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string((yyvsp[0].expr_node)->type),type_to_string(sym->type), yylineno);
             YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = (yyvsp[0].expr_node)->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = (yyvsp[0].expr_node)->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = (yyvsp[0].expr_node)->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup((yyvsp[0].expr_node)->value.svalue);
+            }
         }
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2207 "yprojecty.tab.c"
+#line 2240 "yprojecty.tab.c"
     break;
 
   case 60: /* variable_assignment: ID array_size_or_location '=' expression  */
-#line 613 ".\\yprojecty.y"
+#line 646 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-3].svalue));
         if(sym == NULL) {
@@ -2224,11 +2257,11 @@ yyreduce:
         }
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2228 "yprojecty.tab.c"
+#line 2261 "yprojecty.tab.c"
     break;
 
   case 61: /* function_invocation: ID '(' argument_list ')'  */
-#line 632 ".\\yprojecty.y"
+#line 665 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-3].svalue));
         if(sym == NULL) {
@@ -2241,11 +2274,11 @@ yyreduce:
         }
         // Here we would check argument types and count
     }
-#line 2245 "yprojecty.tab.c"
+#line 2278 "yprojecty.tab.c"
     break;
 
   case 62: /* function_invocation: ID '(' ')'  */
-#line 645 ".\\yprojecty.y"
+#line 678 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
         if(sym == NULL) {
@@ -2258,97 +2291,97 @@ yyreduce:
         }
         // Check that function doesn't require arguments
     }
-#line 2262 "yprojecty.tab.c"
+#line 2295 "yprojecty.tab.c"
     break;
 
   case 67: /* $@12: %empty  */
-#line 669 ".\\yprojecty.y"
+#line 702 ".\\yprojecty.y"
     {enter_new_table(0);}
-#line 2268 "yprojecty.tab.c"
+#line 2301 "yprojecty.tab.c"
     break;
 
   case 68: /* if_statement: $@12 statement  */
-#line 671 ".\\yprojecty.y"
+#line 704 ".\\yprojecty.y"
     {dump_current_table();leave_table();}
-#line 2274 "yprojecty.tab.c"
+#line 2307 "yprojecty.tab.c"
     break;
 
   case 70: /* $@13: %empty  */
-#line 676 ".\\yprojecty.y"
+#line 709 ".\\yprojecty.y"
     {
         inside_loop++;
     }
-#line 2282 "yprojecty.tab.c"
+#line 2315 "yprojecty.tab.c"
     break;
 
   case 71: /* $@14: %empty  */
-#line 680 ".\\yprojecty.y"
+#line 713 ".\\yprojecty.y"
      {
         if ((yyvsp[0].expr_node)->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
      }
-#line 2293 "yprojecty.tab.c"
+#line 2326 "yprojecty.tab.c"
     break;
 
   case 72: /* loop_statement: WHILE $@13 '(' expression $@14 ')' if_statement  */
-#line 686 ".\\yprojecty.y"
+#line 719 ".\\yprojecty.y"
      {
         inside_loop--;
     }
-#line 2301 "yprojecty.tab.c"
+#line 2334 "yprojecty.tab.c"
     break;
 
   case 73: /* $@15: %empty  */
-#line 690 ".\\yprojecty.y"
+#line 723 ".\\yprojecty.y"
     {
         inside_loop++;
     }
-#line 2309 "yprojecty.tab.c"
+#line 2342 "yprojecty.tab.c"
     break;
 
   case 74: /* $@16: %empty  */
-#line 693 ".\\yprojecty.y"
+#line 726 ".\\yprojecty.y"
                                    {
         if ((yyvsp[0].expr_node)->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
     }
-#line 2320 "yprojecty.tab.c"
+#line 2353 "yprojecty.tab.c"
     break;
 
   case 75: /* loop_statement: FOR $@15 '(' simple_statment expression $@16 ';' simple_statment_without_semicolon ')' if_statement  */
-#line 699 ".\\yprojecty.y"
+#line 732 ".\\yprojecty.y"
     {
         
         inside_loop--;
     }
-#line 2329 "yprojecty.tab.c"
+#line 2362 "yprojecty.tab.c"
     break;
 
   case 76: /* $@17: %empty  */
-#line 704 ".\\yprojecty.y"
+#line 737 ".\\yprojecty.y"
     {
         inside_loop++;
     }
-#line 2337 "yprojecty.tab.c"
+#line 2370 "yprojecty.tab.c"
     break;
 
   case 77: /* $@18: %empty  */
-#line 707 ".\\yprojecty.y"
+#line 740 ".\\yprojecty.y"
                                             {
         if ((yyvsp[-2].expr_node)->type != TYPE_INT||(yyvsp[0].expr_node)->type != TYPE_INT) {
             fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
             YYERROR;
         }
     }
-#line 2348 "yprojecty.tab.c"
+#line 2381 "yprojecty.tab.c"
     break;
 
   case 78: /* loop_statement: FOREACH $@17 '(' ID ':' expression DOT_DOT expression $@18 ')' if_statement  */
-#line 713 ".\\yprojecty.y"
+#line 746 ".\\yprojecty.y"
     {
         inside_loop--;
         dump_current_table();
@@ -2360,11 +2393,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2364 "yprojecty.tab.c"
+#line 2397 "yprojecty.tab.c"
     break;
 
   case 81: /* read_statement: READ ID  */
-#line 733 ".\\yprojecty.y"
+#line 766 ".\\yprojecty.y"
             {
         Symbol* sym = lookup_symbol((yyvsp[0].svalue));
         if(sym == NULL) {
@@ -2376,11 +2409,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2380 "yprojecty.tab.c"
+#line 2413 "yprojecty.tab.c"
     break;
 
   case 82: /* increment_decrement_statement: ID PLUS_PLUS  */
-#line 747 ".\\yprojecty.y"
+#line 780 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-1].svalue));
         if(sym == NULL) {
@@ -2396,11 +2429,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2400 "yprojecty.tab.c"
+#line 2433 "yprojecty.tab.c"
     break;
 
   case 83: /* increment_decrement_statement: ID MINUS_MINUS  */
-#line 763 ".\\yprojecty.y"
+#line 796 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-1].svalue));
         if(sym == NULL) {
@@ -2416,11 +2449,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2420 "yprojecty.tab.c"
+#line 2453 "yprojecty.tab.c"
     break;
 
   case 84: /* increment_decrement_statement: ID array_size_or_location PLUS_PLUS  */
-#line 779 ".\\yprojecty.y"
+#line 812 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
         if(sym == NULL) {
@@ -2436,11 +2469,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2440 "yprojecty.tab.c"
+#line 2473 "yprojecty.tab.c"
     break;
 
   case 85: /* increment_decrement_statement: ID array_size_or_location MINUS_MINUS  */
-#line 795 ".\\yprojecty.y"
+#line 828 ".\\yprojecty.y"
     {
         Symbol* sym = lookup_symbol((yyvsp[-2].svalue));
         if(sym == NULL) {
@@ -2456,11 +2489,11 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2460 "yprojecty.tab.c"
+#line 2493 "yprojecty.tab.c"
     break;
 
   case 86: /* return_statement: RETURN expression ';'  */
-#line 813 ".\\yprojecty.y"
+#line 846 ".\\yprojecty.y"
     {
         if (current_function_name == NULL) {
             yyerror("Return statement outside of function");
@@ -2473,11 +2506,11 @@ yyreduce:
         }
         // Additional type checking would go here
     }
-#line 2477 "yprojecty.tab.c"
+#line 2510 "yprojecty.tab.c"
     break;
 
   case 87: /* return_statement: RETURN ';'  */
-#line 826 ".\\yprojecty.y"
+#line 859 ".\\yprojecty.y"
     {
         if (current_function_name == NULL) {
             yyerror("Return statement outside of function");
@@ -2488,162 +2521,162 @@ yyreduce:
             YYERROR;
         }
     }
-#line 2492 "yprojecty.tab.c"
+#line 2525 "yprojecty.tab.c"
     break;
 
   case 88: /* expression: expression EQUAL expression  */
-#line 842 ".\\yprojecty.y"
+#line 875 ".\\yprojecty.y"
     {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_plus));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue == (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2503 "yprojecty.tab.c"
+#line 2536 "yprojecty.tab.c"
     break;
 
   case 89: /* expression: expression NOT_EQUAL expression  */
-#line 848 ".\\yprojecty.y"
+#line 881 ".\\yprojecty.y"
                                    {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_plus));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue != (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2514 "yprojecty.tab.c"
+#line 2547 "yprojecty.tab.c"
     break;
 
   case 90: /* expression: expression '<' expression  */
-#line 854 ".\\yprojecty.y"
+#line 887 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_less));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue < (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2525 "yprojecty.tab.c"
+#line 2558 "yprojecty.tab.c"
     break;
 
   case 91: /* expression: expression '>' expression  */
-#line 860 ".\\yprojecty.y"
+#line 893 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_greater));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue > (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2536 "yprojecty.tab.c"
+#line 2569 "yprojecty.tab.c"
     break;
 
   case 92: /* expression: expression LESS_EQUAL expression  */
-#line 866 ".\\yprojecty.y"
+#line 899 ".\\yprojecty.y"
                                     {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_less_equal));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue <= (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2547 "yprojecty.tab.c"
+#line 2580 "yprojecty.tab.c"
     break;
 
   case 93: /* expression: expression GREATER_EQUAL expression  */
-#line 872 ".\\yprojecty.y"
+#line 905 ".\\yprojecty.y"
                                        {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_greater_equal));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue >= (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2558 "yprojecty.tab.c"
+#line 2591 "yprojecty.tab.c"
     break;
 
   case 94: /* expression: expression AND_AND expression  */
-#line 878 ".\\yprojecty.y"
+#line 911 ".\\yprojecty.y"
                                  {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_and));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue && (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2569 "yprojecty.tab.c"
+#line 2602 "yprojecty.tab.c"
     break;
 
   case 95: /* expression: expression OR_OR expression  */
-#line 884 ".\\yprojecty.y"
+#line 917 ".\\yprojecty.y"
                                {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_or));
         (yyval.expr_node)->value.bvalue = (yyvsp[-2].expr_node)->value.bvalue || (yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2580 "yprojecty.tab.c"
+#line 2613 "yprojecty.tab.c"
     break;
 
   case 96: /* expression: '!' expression  */
-#line 890 ".\\yprojecty.y"
+#line 923 ".\\yprojecty.y"
                   {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[0].expr_node)->type, TYPE_BOOL, op_plus));
         (yyval.expr_node)->value.bvalue = !(yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2590 "yprojecty.tab.c"
+#line 2623 "yprojecty.tab.c"
     break;
 
   case 97: /* expression: INT_LITERAL  */
-#line 895 ".\\yprojecty.y"
+#line 928 ".\\yprojecty.y"
                {
         (yyval.expr_node) = create_expr_node(TYPE_INT);
         (yyval.expr_node)->value.ivalue = (yyvsp[0].ivalue);
     }
-#line 2599 "yprojecty.tab.c"
+#line 2632 "yprojecty.tab.c"
     break;
 
   case 98: /* expression: REAL_LITERAL  */
-#line 899 ".\\yprojecty.y"
+#line 932 ".\\yprojecty.y"
                 {
         (yyval.expr_node) = create_expr_node(TYPE_FLOAT);
         (yyval.expr_node)->value.fvalue = (yyvsp[0].fvalue);
     }
-#line 2608 "yprojecty.tab.c"
+#line 2641 "yprojecty.tab.c"
     break;
 
   case 99: /* expression: STRING_LITERAL  */
-#line 903 ".\\yprojecty.y"
+#line 936 ".\\yprojecty.y"
                   {
         (yyval.expr_node) = create_expr_node(TYPE_STRING);
         (yyval.expr_node)->value.svalue = strdup((yyvsp[0].svalue));
     }
-#line 2617 "yprojecty.tab.c"
+#line 2650 "yprojecty.tab.c"
     break;
 
   case 100: /* expression: TRUE_TOKEN  */
-#line 907 ".\\yprojecty.y"
+#line 940 ".\\yprojecty.y"
               {
         (yyval.expr_node) = create_expr_node(TYPE_BOOL);
         (yyval.expr_node)->value.bvalue = 1;
     }
-#line 2626 "yprojecty.tab.c"
+#line 2659 "yprojecty.tab.c"
     break;
 
   case 101: /* expression: FALSE_TOKEN  */
-#line 911 ".\\yprojecty.y"
+#line 944 ".\\yprojecty.y"
                {
         (yyval.expr_node) = create_expr_node(TYPE_BOOL);
         (yyval.expr_node)->value.bvalue = 0;
     }
-#line 2635 "yprojecty.tab.c"
+#line 2668 "yprojecty.tab.c"
     break;
 
   case 102: /* expression: function_invocation  */
-#line 915 ".\\yprojecty.y"
+#line 948 ".\\yprojecty.y"
                        {
         
     }
-#line 2643 "yprojecty.tab.c"
+#line 2676 "yprojecty.tab.c"
     break;
 
   case 103: /* expression: ID  */
-#line 918 ".\\yprojecty.y"
+#line 951 ".\\yprojecty.y"
       {
         Symbol* sym = lookup_symbol((yyvsp[0].svalue));
         if(sym == NULL) {
@@ -2653,27 +2686,27 @@ yyreduce:
         (yyval.expr_node) = create_expr_node(sym->type);
 
     }
-#line 2657 "yprojecty.tab.c"
+#line 2690 "yprojecty.tab.c"
     break;
 
   case 104: /* expression: ID array_size_or_location  */
-#line 927 ".\\yprojecty.y"
+#line 960 ".\\yprojecty.y"
                              {}
-#line 2663 "yprojecty.tab.c"
+#line 2696 "yprojecty.tab.c"
     break;
 
   case 105: /* expression: '(' expression ')'  */
-#line 928 ".\\yprojecty.y"
+#line 961 ".\\yprojecty.y"
                       {
         (yyval.expr_node) = create_expr_node((yyvsp[-1].expr_node)->type);
         (yyval.expr_node)->value = (yyvsp[-1].expr_node)->value;
         free_expr_node((yyvsp[-1].expr_node));
     }
-#line 2673 "yprojecty.tab.c"
+#line 2706 "yprojecty.tab.c"
     break;
 
   case 106: /* expression: expression '+' expression  */
-#line 933 ".\\yprojecty.y"
+#line 966 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_plus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2686,11 +2719,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2690 "yprojecty.tab.c"
+#line 2723 "yprojecty.tab.c"
     break;
 
   case 107: /* expression: expression '-' expression  */
-#line 945 ".\\yprojecty.y"
+#line 978 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_minus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2702,11 +2735,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2706 "yprojecty.tab.c"
+#line 2739 "yprojecty.tab.c"
     break;
 
   case 108: /* expression: expression '*' expression  */
-#line 956 ".\\yprojecty.y"
+#line 989 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_multiply));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2718,11 +2751,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2722 "yprojecty.tab.c"
+#line 2755 "yprojecty.tab.c"
     break;
 
   case 109: /* expression: expression '/' expression  */
-#line 967 ".\\yprojecty.y"
+#line 1000 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_divide));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2737,11 +2770,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2741 "yprojecty.tab.c"
+#line 2774 "yprojecty.tab.c"
     break;
 
   case 110: /* expression: expression '%' expression  */
-#line 981 ".\\yprojecty.y"
+#line 1014 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_modulus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2756,26 +2789,37 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2760 "yprojecty.tab.c"
+#line 2793 "yprojecty.tab.c"
     break;
 
   case 111: /* expression: '-' expression  */
-#line 995 ".\\yprojecty.y"
+#line 1028 ".\\yprojecty.y"
                                {
         (yyval.expr_node) = create_expr_node((yyvsp[0].expr_node)->type);
         if((yyval.expr_node)->type == TYPE_STRING) {
             yyerror("Type error: Cannot negate strings");
             YYERROR;
-        } else {
+        } else if ((yyvsp[0].expr_node)->type == TYPE_INT) {
             (yyval.expr_node)->value.ivalue = -(yyvsp[0].expr_node)->value.ivalue;
+        } else if ((yyvsp[0].expr_node)->type == TYPE_FLOAT) {
+            (yyval.expr_node)->value.fvalue = -(yyvsp[0].expr_node)->value.fvalue;
+        } else if ((yyvsp[0].expr_node)->type == TYPE_BOOL) {
+            if ((yyvsp[0].expr_node)->value.bvalue) {
+                (yyval.expr_node)->value.bvalue = 0;
+            } else {
+                (yyval.expr_node)->value.bvalue = 1;
+            }
+        }else {
+            yyerror("Type error: Cannot negate non-numeric type");
+            YYERROR;
         }
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2775 "yprojecty.tab.c"
+#line 2819 "yprojecty.tab.c"
     break;
 
 
-#line 2779 "yprojecty.tab.c"
+#line 2823 "yprojecty.tab.c"
 
       default: break;
     }
@@ -2999,7 +3043,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1005 ".\\yprojecty.y"
+#line 1049 ".\\yprojecty.y"
 
 int main() {
     extern int yydebug;

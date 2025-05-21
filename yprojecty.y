@@ -112,11 +112,23 @@
             return;
         }
         while (symbols != NULL) {
-            printf("Symbol: %s, Type: %s, Line: %d", 
+            printf("Symbol: %s, Type: %s, Line: %d, ", 
                   symbols->name, 
                   type_to_string(symbols->type), 
                   symbols->line);
-            
+            if(symbols->type == TYPE_INT) {
+                printf("Value: %d", symbols->value.ivalue);
+            } else if(symbols->type == TYPE_FLOAT) {
+                printf("Value: %f", symbols->value.fvalue);
+            } else if(symbols->type == TYPE_BOOL) {
+                if(symbols->value.bvalue) {
+                    printf("Value: true");
+                } else {
+                    printf("Value: false");
+                }
+            } else if(symbols->type == TYPE_STRING) {
+                printf("Value: %s", symbols->value.svalue);
+            }
             if (symbols->is_const) printf(", Constant");
             if (symbols->is_function) printf(", Function");
             if (symbols->type == TYPE_ARRAY) {
@@ -496,8 +508,18 @@ identifier_decl:
         if($3!=NULL&&!is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(current_declaration_type), yylineno);
             YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol($1);
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = $3->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = $3->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = $3->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup($3->value.svalue);
+            }
         }
-        Symbol* sym = lookup_symbol($1);
         free_expr_node($3);
     }
     ;
@@ -606,6 +628,17 @@ variable_assignment:
         if($3!=NULL&&!is_assignment_compatible(sym->type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(sym->type), yylineno);
             YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol($1);
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = $3->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = $3->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = $3->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup($3->value.svalue);
+            }
         }
         free_expr_node($3);
     }|
@@ -997,8 +1030,19 @@ expression:
         if($$->type == TYPE_STRING) {
             yyerror("Type error: Cannot negate strings");
             YYERROR;
-        } else {
+        } else if ($2->type == TYPE_INT) {
             $$->value.ivalue = -$2->value.ivalue;
+        } else if ($2->type == TYPE_FLOAT) {
+            $$->value.fvalue = -$2->value.fvalue;
+        } else if ($2->type == TYPE_BOOL) {
+            if ($2->value.bvalue) {
+                $$->value.bvalue = 0;
+            } else {
+                $$->value.bvalue = 1;
+            }
+        }else {
+            yyerror("Type error: Cannot negate non-numeric type");
+            YYERROR;
         }
         free_expr_node($2);
     };
