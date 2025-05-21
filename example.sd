@@ -1,4 +1,4 @@
-bool a = false;
+bool a = 100;
 int add(int a, int b)
 {
   int abfc, sdafsd, sdafsad, sdfasf;
