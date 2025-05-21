@@ -20,6 +20,36 @@
         int dimensions;
     }Typeinfo;
 
+    typedef struct{
+        DataType type;
+        union{
+            int ivalue;
+            float fvalue;
+            char* svalue;
+            int bvalue;
+        }value;
+        Typeinfo array_info;
+    }ExpressionNode;
+
+    ExprNode* create_expr_node(DataType type) {
+        ExprNode* node = (ExprNode*)malloc(sizeof(ExprNode));
+        if (!node) {
+            fprintf(stderr, "Memory allocation failed for expression node\n");
+            exit(EXIT_FAILURE);
+        }
+        node->type = type;
+        return node;
+    }
+
+    /* Free an expression node */
+    void free_expr_node(ExprNode* node) {
+        if (node) {
+            if (node->type == TYPE_STRING && node->value.svalue)
+                free(node->value.svalue);
+            free(node);
+        }
+    }
+
     void yyerror(const char *s) {
         fprintf(stderr, "Error: %s\n at line %d, near %s\n", s , yylineno, yytext);
     }
