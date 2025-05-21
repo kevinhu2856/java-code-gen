@@ -94,7 +94,8 @@ extern int yydebug;
     AND_AND = 295,                 /* AND_AND  */
     OR_OR = 296,                   /* OR_OR  */
     DOT_DOT = 297,                 /* DOT_DOT  */
-    UMINUS = 298                   /* UMINUS  */
+    UMINUS = 298,                  /* UMINUS  */
+    LOWER_THAN_ELSE = 299          /* LOWER_THAN_ELSE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -111,7 +112,7 @@ union YYSTYPE
     int dtype;
     struct ExpressionNode* expr_node;
 
-#line 115 "yprojecty.tab.h"
+#line 116 "yprojecty.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -384,6 +384,9 @@
 %define parse.error verbose
 %define parse.trace
 
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
+
 %%
 
 program:
@@ -695,8 +698,22 @@ argument_list:
 
 
 conditional_statement:
-    IF '(' expression ')' if_statement ELSE if_statement|
-    IF '(' expression ')' if_statement;
+    IF '(' expression ')' if_statement ELSE if_statement
+    {
+        if ($3->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+    }|
+    IF '(' expression')' if_statement 
+    {
+        if ($3->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+    }
+    %prec LOWER_THAN_ELSE
+    ;
 
 if_statement:
     {enter_new_table(0);}
@@ -873,13 +890,13 @@ return_statement:
 expression:
     expression EQUAL expression
     {
-        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_plus));
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_equal));
         $$->value.bvalue = $1->value.bvalue == $3->value.bvalue;
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression NOT_EQUAL expression{
-        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_plus));
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_not_equal));
         $$->value.bvalue = $1->value.bvalue != $3->value.bvalue;
         free_expr_node($1);
         free_expr_node($3);
