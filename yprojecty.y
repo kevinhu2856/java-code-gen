@@ -42,7 +42,7 @@
     SymbolTable* current_table = NULL;
     DataType current_declaration_type;
     DataType current_function_return_type;
-    char* current_function_name;
+    char* current_function_name = NULL;
     int inside_loop = 0;
 
     const char* type_to_string(DataType type) {
