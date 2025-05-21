@@ -921,7 +921,7 @@ expression:
         free_expr_node($3);
     }|
     '!' expression{
-        $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_plus));
+        $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_equal));
         $$->value.bvalue = !$2->value.bvalue;
         free_expr_node($2);
     }|
@@ -955,6 +955,15 @@ expression:
             YYERROR;
         }
         $$ = create_expr_node(sym->type);
+        if (sym->type == TYPE_INT) {
+            $$->value.ivalue = sym->value.ivalue;
+        } else if (sym->type == TYPE_FLOAT) {
+            $$->value.fvalue = sym->value.fvalue;
+        } else if (sym->type == TYPE_BOOL) {
+            $$->value.bvalue = sym->value.bvalue;
+        } else if (sym->type == TYPE_STRING) {
+            $$->value.svalue = strdup(sym->value.svalue);
+        }
 
     }|
     ID array_size_or_location{}|
@@ -1001,9 +1010,6 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_divide));
         if($$->type == TYPE_STRING) {
             yyerror("Type error: Cannot divide strings");
-            YYERROR;
-        } else if ($3->value.ivalue == 0) {
-            yyerror("Error: Division by zero");
             YYERROR;
         } else {
             $$->value.ivalue = $1->value.ivalue / $3->value.ivalue;

@@ -1061,7 +1061,7 @@ case 57:
 YY_RULE_SETUP
 #line 92 ".\\scanner.l"
 { yylval.ivalue=atoi(yytext); 
-    
+    yylval.ivalue = atoi(yytext);
  printf("<int: %s>", yytext); return INT_LITERAL;}
 	YY_BREAK
 case 58:

@@ -961,8 +961,8 @@ static const yytype_int16 yyrline[] =
      709,   713,   708,   723,   726,   722,   737,   740,   736,   761,
      762,   766,   779,   795,   811,   827,   845,   858,   874,   881,
      887,   893,   899,   905,   911,   917,   923,   928,   932,   936,
-     940,   944,   948,   951,   960,   961,   966,   978,   989,  1000,
-    1014,  1028
+     940,   944,   948,   951,   969,   970,   975,   987,   998,  1009,
+    1020,  1034
 };
 #endif
 
@@ -2615,7 +2615,7 @@ yyreduce:
   case 96: /* expression: '!' expression  */
 #line 923 ".\\yprojecty.y"
                   {
-        (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[0].expr_node)->type, TYPE_BOOL, op_plus));
+        (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[0].expr_node)->type, TYPE_BOOL, op_equal));
         (yyval.expr_node)->value.bvalue = !(yyvsp[0].expr_node)->value.bvalue;
         free_expr_node((yyvsp[0].expr_node));
     }
@@ -2684,29 +2684,38 @@ yyreduce:
             YYERROR;
         }
         (yyval.expr_node) = create_expr_node(sym->type);
+        if (sym->type == TYPE_INT) {
+            (yyval.expr_node)->value.ivalue = sym->value.ivalue;
+        } else if (sym->type == TYPE_FLOAT) {
+            (yyval.expr_node)->value.fvalue = sym->value.fvalue;
+        } else if (sym->type == TYPE_BOOL) {
+            (yyval.expr_node)->value.bvalue = sym->value.bvalue;
+        } else if (sym->type == TYPE_STRING) {
+            (yyval.expr_node)->value.svalue = strdup(sym->value.svalue);
+        }
 
     }
-#line 2690 "yprojecty.tab.c"
+#line 2699 "yprojecty.tab.c"
     break;
 
   case 104: /* expression: ID array_size_or_location  */
-#line 960 ".\\yprojecty.y"
+#line 969 ".\\yprojecty.y"
                              {}
-#line 2696 "yprojecty.tab.c"
+#line 2705 "yprojecty.tab.c"
     break;
 
   case 105: /* expression: '(' expression ')'  */
-#line 961 ".\\yprojecty.y"
+#line 970 ".\\yprojecty.y"
                       {
         (yyval.expr_node) = create_expr_node((yyvsp[-1].expr_node)->type);
         (yyval.expr_node)->value = (yyvsp[-1].expr_node)->value;
         free_expr_node((yyvsp[-1].expr_node));
     }
-#line 2706 "yprojecty.tab.c"
+#line 2715 "yprojecty.tab.c"
     break;
 
   case 106: /* expression: expression '+' expression  */
-#line 966 ".\\yprojecty.y"
+#line 975 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_plus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2719,11 +2728,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2723 "yprojecty.tab.c"
+#line 2732 "yprojecty.tab.c"
     break;
 
   case 107: /* expression: expression '-' expression  */
-#line 978 ".\\yprojecty.y"
+#line 987 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_minus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2735,11 +2744,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2739 "yprojecty.tab.c"
+#line 2748 "yprojecty.tab.c"
     break;
 
   case 108: /* expression: expression '*' expression  */
-#line 989 ".\\yprojecty.y"
+#line 998 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_multiply));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2751,18 +2760,15 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2755 "yprojecty.tab.c"
+#line 2764 "yprojecty.tab.c"
     break;
 
   case 109: /* expression: expression '/' expression  */
-#line 1000 ".\\yprojecty.y"
+#line 1009 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_divide));
         if((yyval.expr_node)->type == TYPE_STRING) {
             yyerror("Type error: Cannot divide strings");
-            YYERROR;
-        } else if ((yyvsp[0].expr_node)->value.ivalue == 0) {
-            yyerror("Error: Division by zero");
             YYERROR;
         } else {
             (yyval.expr_node)->value.ivalue = (yyvsp[-2].expr_node)->value.ivalue / (yyvsp[0].expr_node)->value.ivalue;
@@ -2770,11 +2776,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2774 "yprojecty.tab.c"
+#line 2780 "yprojecty.tab.c"
     break;
 
   case 110: /* expression: expression '%' expression  */
-#line 1014 ".\\yprojecty.y"
+#line 1020 ".\\yprojecty.y"
                              {
         (yyval.expr_node) = create_expr_node(check_expression_type((yyvsp[-2].expr_node)->type, (yyvsp[0].expr_node)->type, op_modulus));
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2789,11 +2795,11 @@ yyreduce:
         free_expr_node((yyvsp[-2].expr_node));
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2793 "yprojecty.tab.c"
+#line 2799 "yprojecty.tab.c"
     break;
 
   case 111: /* expression: '-' expression  */
-#line 1028 ".\\yprojecty.y"
+#line 1034 ".\\yprojecty.y"
                                {
         (yyval.expr_node) = create_expr_node((yyvsp[0].expr_node)->type);
         if((yyval.expr_node)->type == TYPE_STRING) {
@@ -2815,11 +2821,11 @@ yyreduce:
         }
         free_expr_node((yyvsp[0].expr_node));
     }
-#line 2819 "yprojecty.tab.c"
+#line 2825 "yprojecty.tab.c"
     break;
 
 
-#line 2823 "yprojecty.tab.c"
+#line 2829 "yprojecty.tab.c"
 
       default: break;
     }
@@ -3043,7 +3049,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1049 ".\\yprojecty.y"
+#line 1055 ".\\yprojecty.y"
 
 int main() {
     extern int yydebug;
