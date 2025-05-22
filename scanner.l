@@ -89,9 +89,9 @@
 }
 
 
-[0-9]+   { yylval.ivalue=atoi(yytext); 
-    
- printf("<int: %s>", yytext); return INT_LITERAL;}
+[0-9]+   { 
+    yylval.ivalue=atoi(yytext); 
+    printf("<int: %s>", yytext); return INT_LITERAL;}
 
 [0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?   {
     yylval.fvalue=atof(yytext);

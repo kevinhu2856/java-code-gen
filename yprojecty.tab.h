@@ -84,17 +84,18 @@ extern int yydebug;
     REAL_LITERAL = 285,            /* REAL_LITERAL  */
     STRING_LITERAL = 286,          /* STRING_LITERAL  */
     MAIN = 287,                    /* MAIN  */
-    PLUS_PLUS = 288,               /* PLUS_PLUS  */
-    MINUS_MINUS = 289,             /* MINUS_MINUS  */
-    LESS_EQUAL = 290,              /* LESS_EQUAL  */
-    GREATER_EQUAL = 291,           /* GREATER_EQUAL  */
-    EQUAL = 292,                   /* EQUAL  */
-    NOT_EQUAL = 293,               /* NOT_EQUAL  */
-    AND_AND = 294,                 /* AND_AND  */
-    OR_OR = 295,                   /* OR_OR  */
-    DOT_DOT = 296,                 /* DOT_DOT  */
-    UMINUS = 297,                  /* UMINUS  */
-    ID = 298                       /* ID  */
+    ID = 288,                      /* ID  */
+    PLUS_PLUS = 289,               /* PLUS_PLUS  */
+    MINUS_MINUS = 290,             /* MINUS_MINUS  */
+    LESS_EQUAL = 291,              /* LESS_EQUAL  */
+    GREATER_EQUAL = 292,           /* GREATER_EQUAL  */
+    EQUAL = 293,                   /* EQUAL  */
+    NOT_EQUAL = 294,               /* NOT_EQUAL  */
+    AND_AND = 295,                 /* AND_AND  */
+    OR_OR = 296,                   /* OR_OR  */
+    DOT_DOT = 297,                 /* DOT_DOT  */
+    UMINUS = 298,                  /* UMINUS  */
+    LOWER_THAN_ELSE = 299          /* LOWER_THAN_ELSE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -103,15 +104,15 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 320 ".\\yprojecty.y"
+#line 369 ".\\yprojecty.y"
 
     int ivalue;
     float fvalue;
     char* svalue;
     int dtype;
-    void* expr;
+    struct ExpressionNode* expr_node;
 
-#line 115 "yprojecty.tab.h"
+#line 116 "yprojecty.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

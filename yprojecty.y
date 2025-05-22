@@ -20,11 +20,47 @@
         int dimensions;
     }Typeinfo;
 
+    typedef struct ExpressionNode{
+        DataType type;
+        union{
+            int ivalue;
+            float fvalue;
+            char* svalue;
+            int bvalue;
+        }value;
+        Typeinfo array_info;
+    }ExpressionNode;
+
+    ExpressionNode* create_expr_node(DataType type) {
+        ExpressionNode* node = (ExpressionNode*)malloc(sizeof(ExpressionNode));
+        if (!node) {
+            fprintf(stderr, "Memory allocation failed for expression node\n");
+            exit(EXIT_FAILURE);
+        }
+        node->type = type;
+        return node;
+    }
+
+    /* Free an expression node */
+    void free_expr_node(ExpressionNode* node) {
+        if (node) {
+            if (node->type == TYPE_STRING && node->value.svalue)
+                free(node->value.svalue);
+            free(node);
+        }
+    }
+
     void yyerror(const char *s) {
         fprintf(stderr, "Error: %s\n at line %d, near %s\n", s , yylineno, yytext);
     }
     typedef struct Symbol{
         char *name;
+        union {
+            int ivalue;
+            float fvalue;
+            char* svalue;
+            int bvalue;
+        }value;
         int line;
         DataType type;
         Typeinfo typeinfo;
@@ -76,11 +112,23 @@
             return;
         }
         while (symbols != NULL) {
-            printf("Symbol: %s, Type: %s, Line: %d", 
+            printf("Symbol: %s, Type: %s, Line: %d, ", 
                   symbols->name, 
                   type_to_string(symbols->type), 
                   symbols->line);
-            
+            if(symbols->type == TYPE_INT) {
+                printf("Value: %d", symbols->value.ivalue);
+            } else if(symbols->type == TYPE_FLOAT) {
+                printf("Value: %f", symbols->value.fvalue);
+            } else if(symbols->type == TYPE_BOOL) {
+                if(symbols->value.bvalue) {
+                    printf("Value: true");
+                } else {
+                    printf("Value: false");
+                }
+            } else if(symbols->type == TYPE_STRING) {
+                printf("Value: %s", symbols->value.svalue);
+            }
             if (symbols->is_const) printf(", Constant");
             if (symbols->is_function) printf(", Function");
             if (symbols->type == TYPE_ARRAY) {
@@ -308,7 +356,7 @@
 %}
 
 %token BOOL BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE EXTERN FALSE_TOKEN FLOAT FOR FOREACH IF INT PRINT PRINTLN READ RETURN STRING SWITCH TRUE_TOKEN VOID WHILE
-%token  INT_LITERAL REAL_LITERAL STRING_LITERAL MAIN 
+%token  INT_LITERAL REAL_LITERAL STRING_LITERAL MAIN ID
 %token PLUS_PLUS MINUS_MINUS LESS_EQUAL GREATER_EQUAL EQUAL NOT_EQUAL AND_AND OR_OR DOT_DOT
 %left OR_OR
 %left AND_AND
@@ -317,25 +365,27 @@
 %left '+' '-'
 %left '*' '/' '%'
 %right UMINUS
+
 %union{
     int ivalue;
     float fvalue;
     char* svalue;
     int dtype;
-    void* expr;
+    struct ExpressionNode* expr_node;
 }
-
-%token <svalue> ID
 
 %type <ivalue> INT_LITERAL
 %type <fvalue> REAL_LITERAL
 %type <svalue> STRING_LITERAL
-%type <svalue> MAIN
+%type <svalue> MAIN ID
 %type <dtype> type
-%type <expr> expression  bool_expression
+%type <expr_node> expression
 
 %define parse.error verbose
 %define parse.trace
+
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %%
 
@@ -458,6 +508,22 @@ identifier_decl:
     ID '=' expression
     {
         insert_symbol($1, current_declaration_type, 0, 0);
+        if($3!=NULL&&!is_assignment_compatible(current_declaration_type, $3->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(current_declaration_type), yylineno);
+            YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol($1);
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = $3->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = $3->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = $3->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup($3->value.svalue);
+            }
+        }
+        free_expr_node($3);
     }
     ;
 
@@ -472,8 +538,22 @@ array_declaration:
     ;
 
 array_size_or_location:
-    '[' expression ']'|
+    '[' expression ']'
+    {
+        if($2->type != TYPE_INT) {
+            fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
+            YYERROR;
+        }
+        free_expr_node($2);
+    }|
     '[' expression ']' array_size_or_location
+    {
+        if($2->type != TYPE_INT) {
+            fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
+            YYERROR;
+        }
+        free_expr_node($2);
+    }
     ;
 
 type:
@@ -548,6 +628,22 @@ variable_assignment:
             fprintf(stderr, "Error: Cannot assign to constant '%s' at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if($3!=NULL&&!is_assignment_compatible(sym->type, $3->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(sym->type), yylineno);
+            YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol($1);
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = $3->value.ivalue;
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = $3->value.fvalue;
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = $3->value.bvalue;
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup($3->value.svalue);
+            }
+        }
+        free_expr_node($3);
     }|
     ID array_size_or_location '=' expression
     {
@@ -560,6 +656,11 @@ variable_assignment:
             fprintf(stderr, "Error: Variable '%s' is not an array at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if($4!=NULL&&!is_assignment_compatible(sym->typeinfo.basetype, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type),type_to_string(sym->typeinfo.basetype), yylineno);
+            YYERROR;
+        }
+        free_expr_node($4);
     } ;
 
 function_invocation:
@@ -597,8 +698,22 @@ argument_list:
 
 
 conditional_statement:
-    IF '(' bool_expression ')' if_statement ELSE if_statement|
-    IF '(' bool_expression ')' if_statement;
+    IF '(' expression ')' if_statement ELSE if_statement
+    {
+        if ($3->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+    }|
+    IF '(' expression')' if_statement 
+    {
+        if ($3->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+    }
+    %prec LOWER_THAN_ELSE
+    ;
 
 if_statement:
     {enter_new_table(0);}
@@ -611,7 +726,13 @@ loop_statement:
     {
         inside_loop++;
     }
-     '(' bool_expression ')' if_statement
+     '(' expression
+     {
+        if ($4->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+     } ')' if_statement
      {
         inside_loop--;
     }|
@@ -619,15 +740,26 @@ loop_statement:
     {
         inside_loop++;
     }
-    '(' simple_statment  bool_expression ';' simple_statment_without_semicolon')' if_statement
+    '(' simple_statment  expression{
+        if ($5->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+    } ';' simple_statment_without_semicolon')' if_statement
     {
+        
         inside_loop--;
     }|
     FOREACH 
     {
         inside_loop++;
     }
-    '(' ID ':' expression DOT_DOT expression ')' if_statement
+    '(' ID ':' expression DOT_DOT expression{
+        if ($6->type != TYPE_INT||$8->type != TYPE_INT) {
+            fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
+            YYERROR;
+        }
+    } ')' if_statement
     {
         inside_loop--;
         dump_current_table();
@@ -752,35 +884,191 @@ return_statement:
         }
     };
 
-bool_expression:
-    expression EQUAL expression{}|
-    expression NOT_EQUAL expression{}|
-    expression '<' expression{}|
-    expression '>' expression{}|
-    expression LESS_EQUAL expression{}|
-    expression GREATER_EQUAL expression{}|
-    bool_expression AND_AND bool_expression{}|
-    bool_expression OR_OR bool_expression{}|
-    '!' bool_expression{}|
-    '(' bool_expression ')'{};
+    
 
 
 expression:
-    INT_LITERAL{}|
-    REAL_LITERAL{}|
-    STRING_LITERAL{}|
-    TRUE_TOKEN{}|
-    FALSE_TOKEN{}|
-    function_invocation{}|
-    ID{}|
+    expression EQUAL expression
+    {
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_equal));
+        $$->value.bvalue = $1->value.bvalue == $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression NOT_EQUAL expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_not_equal));
+        $$->value.bvalue = $1->value.bvalue != $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '<' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_less));
+        $$->value.bvalue = $1->value.bvalue < $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '>' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater));
+        $$->value.bvalue = $1->value.bvalue > $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression LESS_EQUAL expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_less_equal));
+        $$->value.bvalue = $1->value.bvalue <= $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression GREATER_EQUAL expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater_equal));
+        $$->value.bvalue = $1->value.bvalue >= $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression AND_AND expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_and));
+        $$->value.bvalue = $1->value.bvalue && $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression OR_OR expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_or));
+        $$->value.bvalue = $1->value.bvalue || $3->value.bvalue;
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    '!' expression{
+        $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_equal));
+        $$->value.bvalue = !$2->value.bvalue;
+        free_expr_node($2);
+    }|
+    INT_LITERAL{
+        $$ = create_expr_node(TYPE_INT);
+        $$->value.ivalue = $1;
+    }|
+    REAL_LITERAL{
+        $$ = create_expr_node(TYPE_FLOAT);
+        $$->value.fvalue = $1;
+    }|
+    STRING_LITERAL{
+        $$ = create_expr_node(TYPE_STRING);
+        $$->value.svalue = strdup($1);
+    }|
+    TRUE_TOKEN{
+        $$ = create_expr_node(TYPE_BOOL);
+        $$->value.bvalue = 1;
+    }|
+    FALSE_TOKEN{
+        $$ = create_expr_node(TYPE_BOOL);
+        $$->value.bvalue = 0;
+    }|
+    function_invocation{
+        
+    }|
+    ID{
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        $$ = create_expr_node(sym->type);
+        if (sym->type == TYPE_INT) {
+            $$->value.ivalue = sym->value.ivalue;
+        } else if (sym->type == TYPE_FLOAT) {
+            $$->value.fvalue = sym->value.fvalue;
+        } else if (sym->type == TYPE_BOOL) {
+            $$->value.bvalue = sym->value.bvalue;
+        } else if (sym->type == TYPE_STRING) {
+            $$->value.svalue = strdup(sym->value.svalue);
+        }
+
+    }|
     ID array_size_or_location{}|
-    '(' expression ')'{}|
-    expression '+' expression{}|
-    expression '-' expression{}|
-    expression '*' expression{}|
-    expression '/' expression{}|
-    expression '%' expression{}|
-    '-' expression %prec UMINUS{};
+    '(' expression ')'{
+        $$ = create_expr_node($2->type);
+        $$->value = $2->value;
+        free_expr_node($2);
+    }|
+    expression '+' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_plus));
+        if($$->type == TYPE_STRING) {
+            $$->value.svalue = (char*)malloc(strlen($1->value.svalue) + strlen($3->value.svalue) + 1);
+            strcpy($$->value.svalue, $1->value.svalue);
+            strcat($$->value.svalue, $3->value.svalue);
+        } else {
+            $$->value.ivalue = $1->value.ivalue + $3->value.ivalue;
+        }
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '-' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_minus));
+        if($$->type == TYPE_STRING) {
+            yyerror("Type error: Cannot subtract strings");
+            YYERROR;
+        } else {
+            $$->value.ivalue = $1->value.ivalue - $3->value.ivalue;
+        }
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '*' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_multiply));
+        if($$->type == TYPE_STRING) {
+            yyerror("Type error: Cannot multiply strings");
+            YYERROR;
+        } else {
+            $$->value.ivalue = $1->value.ivalue * $3->value.ivalue;
+        }
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '/' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_divide));
+        if($$->type == TYPE_STRING) {
+            yyerror("Type error: Cannot divide strings");
+            YYERROR;
+        } else {
+            $$->value.ivalue = $1->value.ivalue / $3->value.ivalue;
+        }
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    expression '%' expression{
+        $$ = create_expr_node(check_expression_type($1->type, $3->type, op_modulus));
+        if($$->type == TYPE_STRING) {
+            yyerror("Type error: Cannot modulo strings");
+            YYERROR;
+        } else if ($3->value.ivalue == 0) {
+            yyerror("Error: Division by zero");
+            YYERROR;
+        } else {
+            $$->value.ivalue = $1->value.ivalue % $3->value.ivalue;
+        }
+        free_expr_node($1);
+        free_expr_node($3);
+    }|
+    '-' expression %prec UMINUS{
+        $$ = create_expr_node($2->type);
+        if($$->type == TYPE_STRING) {
+            yyerror("Type error: Cannot negate strings");
+            YYERROR;
+        } else if ($2->type == TYPE_INT) {
+            $$->value.ivalue = -$2->value.ivalue;
+        } else if ($2->type == TYPE_FLOAT) {
+            $$->value.fvalue = -$2->value.fvalue;
+        } else if ($2->type == TYPE_BOOL) {
+            if ($2->value.bvalue) {
+                $$->value.bvalue = 0;
+            } else {
+                $$->value.bvalue = 1;
+            }
+        }else {
+            yyerror("Type error: Cannot negate non-numeric type");
+            YYERROR;
+        }
+        free_expr_node($2);
+    };
 %%
 int main() {
     extern int yydebug;
