@@ -1,4 +1,11 @@
-void main (){
-    int a;
+const float pi =10;
+void main(){
+    bool a = -true;
+    int b = 100/10;
+    int c = 100+100/10;
+    bool d = (b+1==1)||(c!=110+10);
+    bool e = (2+1)!=1;
+    if(2+1!=1){
+    }
     return;
 }
