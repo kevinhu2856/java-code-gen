@@ -64,6 +64,7 @@
         int line;
         DataType type;
         Typeinfo typeinfo;
+        int variable_label;
         int is_const;
         int is_function;
         struct Symbol *next;
@@ -73,6 +74,7 @@
         Symbol* symbols_list;
         struct SymbolTable* outer;
         int is_function;
+        int local_var_label;
     }SymbolTable;
 
     SymbolTable* current_table = NULL;
@@ -80,6 +82,7 @@
     DataType current_function_return_type;
     char* current_function_name = NULL;
     int inside_loop = 0;
+    
 
     const char* type_to_string(DataType type) {
         switch(type) {
@@ -98,6 +101,7 @@
         new_table->symbols_list = NULL;
         new_table->outer = current_table;
         new_table->is_function = is_function_scope;
+        new_table->local_var_label = 0;
         current_table = new_table;
         return new_table;
     }
@@ -201,9 +205,9 @@
         return symbol;
     }
 
-    void insert_symbol(char* name, DataType type, int is_const, int is_function) {
+    void insert_symbol(char* name, DataType type, int is_const, int is_function, int label) {
         
-         if (lookup_symbol(name) != NULL) {
+         if (lookup_current_scope(name) != NULL) {
             fprintf(stderr, "Error: Variable '%s' already declared in current scope at line %d\n", 
                    name, yylineno);
             return;
@@ -220,6 +224,7 @@
         new_symbol->type = type;
         new_symbol->is_const = is_const;
         new_symbol->is_function = is_function;
+        new_symbol->variable_label = label;
         new_symbol->next = NULL;
         
         // Set array info if applicable
@@ -352,6 +357,16 @@
             default: current_declaration_type = TYPE_INT; // Default
         }
     }
+
+    FILE* output_file;
+    void open_output_file() {
+        output_file = fopen("example.j", "w");
+        if (output_file == NULL) {
+            fprintf(stderr, "Error opening output file\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     
 %}
 
@@ -379,7 +394,7 @@
 %type <svalue> STRING_LITERAL
 %type <svalue> MAIN ID
 %type <dtype> type
-%type <expr_node> expression
+%type <expr_node> expression function_invocation
 
 %define parse.error verbose
 %define parse.trace
@@ -407,11 +422,64 @@ pre_main_declaration:
 
 pre_main_declaration_list:
     function_declaration
-    | const_declaration
-    | variable_declaration
+    | pre_main_const_declaration
+    | pre_main_variable_declaration
     ;
     
+pre_main_const_declaration:
+    CONST type
+    {
+        current_declaration_type = $2;
+    }
+    premain_identifier_list ';'
+    ;
 
+pre_main_variable_declaration:
+    type
+    premain_identifier_list ';'
+    {
+        current_declaration_type = $1;
+    }
+    ;
+
+premain_identifier_list:
+    premain_identifier_decl
+    | premain_identifier_decl ',' premain_identifier_list
+    ;
+
+premain_identifier_decl:
+    ID
+    {
+        insert_symbol($1, current_declaration_type, 0, 0,current_table->local_var_label); // Add variable to function scope
+        current_table->local_var_label++;
+        fprintf(output_file, "field static %s %s\n", type_to_string(current_declaration_type), $1);
+    }|
+    ID '=' expression
+    {
+        insert_symbol($1, current_declaration_type, 0, 0,current_table->local_var_label); // Add variable to function scope
+        current_table->local_var_label++;
+        if($3!=NULL&&!is_assignment_compatible(current_declaration_type, $3->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(current_declaration_type), yylineno);
+            YYERROR;
+        }else{
+            Symbol* sym = lookup_symbol($1);
+            if (sym->type == TYPE_INT) {
+                sym->value.ivalue = $3->value.ivalue;
+                fprintf(output_file, "field static int %s = %d\n",sym->name, $3->value.ivalue);
+            } else if (sym->type == TYPE_FLOAT) {
+                sym->value.fvalue = $3->value.fvalue;
+                fprintf(output_file, "field static int %s = %f\n",sym->name, $3->value.ivalue);
+            } else if (sym->type == TYPE_BOOL) {
+                sym->value.bvalue = $3->value.bvalue;
+                fprintf(output_file, "field static int %s = %d\n",sym->name, $3->value.ivalue);
+            } else if (sym->type == TYPE_STRING) {
+                sym->value.svalue = strdup($3->value.svalue);
+                fprintf(output_file, "error string assignment\n");
+            }
+        }
+        free_expr_node($3);
+    }
+    ;
 
 
 function_declaration:
@@ -420,17 +488,20 @@ function_declaration:
     '(' 
     {
         enter_new_table(1);
+        fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     }
     parameter_list ')' 
     {
         current_function_return_type = $1;
         current_function_name = strdup($2);
-        insert_symbol($2, $1, 0, 1);
+        insert_symbol($2, $1, 0, 1, -1);
+        fprintf(output_file,"){\n");
     }block 
     
     {
         free(current_function_name);
         current_function_name = NULL;
+        fprintf(output_file,"}\n");
     }
     |
     type ID 
@@ -438,30 +509,38 @@ function_declaration:
     '(' 
     {
         enter_new_table(1);
+        fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     } 
     ')' 
     {
         current_function_return_type = $1;
         current_function_name = strdup($2);
-        insert_symbol($2, $1, 0, 1);
+        insert_symbol($2, $1, 0, 1,-1);
+        fprintf(output_file,"){\n");
     }
     block
     {
         free(current_function_name);
         current_function_name = NULL;
+        fprintf(output_file,"}\n");
     }
     ;
 
 parameter_list:
     type ID
     {
-        insert_symbol($2, $1, 0, 0); // Add parameter to function scope
+        insert_symbol($2, $1, 0, 0,-1); // Add parameter to function scope
+        fprintf(output_file, "%s", type_to_string($1));
     }|
     type ID 
     {
-        insert_symbol($2, $1, 0, 0); // Add parameter to function scope
+        insert_symbol($2, $1, 0, 0,-1); // Add parameter to function scope
+        fprintf(output_file, "%s", type_to_string($1));
     }
-    ',' parameter_list
+    ','
+    {
+        fprintf(output_file, ", ");
+    } parameter_list
     ;
 
 
@@ -470,7 +549,8 @@ main_function_declaration:
     {
         current_function_return_type = TYPE_VOID;
         current_function_name = strdup("main");
-        insert_symbol("main", TYPE_VOID, 0, 1);
+        insert_symbol("main", TYPE_VOID, 0, 1,-1);
+        fprintf(output_file,"public static void main(String[] args) {\n");
     }
     '('
     {
@@ -480,6 +560,7 @@ main_function_declaration:
      {
         free(current_function_name);
         current_function_name = NULL;
+        fprintf(output_file,"}\n");
     }
     ;
 
@@ -503,11 +584,13 @@ identifier_list:
 identifier_decl:
     ID
     {
-        insert_symbol($1, current_declaration_type, 0, 0);
+        insert_symbol($1, current_declaration_type, 0, 0,current_table->local_var_label); // Add variable to function scope
+        current_table->local_var_label++;
     }|
     ID '=' expression
     {
-        insert_symbol($1, current_declaration_type, 0, 0);
+        insert_symbol($1, current_declaration_type, 0, 0,current_table->local_var_label); // Add variable to function scope
+        current_table->local_var_label++;
         if($3!=NULL&&!is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(current_declaration_type), yylineno);
             YYERROR;
@@ -515,12 +598,22 @@ identifier_decl:
             Symbol* sym = lookup_symbol($1);
             if (sym->type == TYPE_INT) {
                 sym->value.ivalue = $3->value.ivalue;
+                fprintf(output_file, "sipush %d\n",$3->value.ivalue);
+                fprintf(output_file, "istore %d\n", current_table->local_var_label);
+                current_table->local_var_label++;
             } else if (sym->type == TYPE_FLOAT) {
                 sym->value.fvalue = $3->value.fvalue;
+                fprintf(output_file, "sipush %d\n",$3->value.fvalue);
+                fprintf(output_file, "istore %d\n", current_table->local_var_label);
+                current_table->local_var_label++;
             } else if (sym->type == TYPE_BOOL) {
                 sym->value.bvalue = $3->value.bvalue;
+                fprintf(output_file, "sipush %d\n",$3->value.ivalue);
+                fprintf(output_file, "istore %d\n", current_table->local_var_label);
+                current_table->local_var_label++;
             } else if (sym->type == TYPE_STRING) {
                 sym->value.svalue = strdup($3->value.svalue);
+                fprintf(output_file, "error assignment to string variable\n");
             }
         }
         free_expr_node($3);
@@ -532,7 +625,8 @@ array_declaration:
     ID 
     {
         current_declaration_type = $1;
-        insert_symbol($2, TYPE_ARRAY, 0, 0); // Record as array type
+        insert_symbol($2, TYPE_ARRAY, 0, 0,current_table->local_var_label); // Record as array type
+        current_table->local_var_label++;
     }
     array_size_or_location ';'
     ;
@@ -582,7 +676,8 @@ block:
     '{'
     {
         enter_new_table(0);
-    } '}'
+    }
+    '}'
     {
         dump_current_table();
         leave_table();
@@ -635,12 +730,32 @@ variable_assignment:
             Symbol* sym = lookup_symbol($1);
             if (sym->type == TYPE_INT) {
                 sym->value.ivalue = $3->value.ivalue;
+                fprintf(output_file, "sipush %d\n",$3->value.ivalue);
+                if(sym->variable_label==-1){
+                    fprintf(output_file,"putstatic %s example.%s\n", type_to_string(sym->type), sym->name);
+                }else{
+                    fprintf(output_file, "istore %d\n", sym->variable_label);
+                }
+                
             } else if (sym->type == TYPE_FLOAT) {
                 sym->value.fvalue = $3->value.fvalue;
+                fprintf(output_file, "sipush %f\n",$3->value.ivalue);
+                if(sym->variable_label==-1){
+                    fprintf(output_file,"putstatic %s example.%s\n", type_to_string(sym->type), sym->name);
+                }else{
+                    fprintf(output_file, "istore %d\n", sym->variable_label);
+                }
             } else if (sym->type == TYPE_BOOL) {
                 sym->value.bvalue = $3->value.bvalue;
+                fprintf(output_file, "sipush %d\n",$3->value.ivalue);
+                if(sym->variable_label==-1){
+                    fprintf(output_file,"putstatic %s example.%s\n", type_to_string(sym->type), sym->name);
+                }else{
+                    fprintf(output_file, "istore %d\n", sym->variable_label);
+                }
             } else if (sym->type == TYPE_STRING) {
                 sym->value.svalue = strdup($3->value.svalue);
+                fprintf(output_file, "error assignment to string variable\n");
             }
         }
         free_expr_node($3);
@@ -675,6 +790,7 @@ function_invocation:
             fprintf(stderr, "Error: '%s' is not a function at line %d\n", $1, yylineno);
             YYERROR;
         }
+        $$= create_expr_node(sym->type);
         // Here we would check argument types and count
     }|
     ID '(' ')'
@@ -688,6 +804,7 @@ function_invocation:
             fprintf(stderr, "Error: '%s' is not a function at line %d\n", $1, yylineno);
             YYERROR;
         }
+        $$= create_expr_node(sym->type);
         // Check that function doesn't require arguments
     };
 
@@ -963,6 +1080,11 @@ expression:
         $$->value.bvalue = 0;
     }|
     function_invocation{
+        if ($1->type == TYPE_VOID) {
+            fprintf(stderr, "Error: Function returns void at line %d\n", yylineno);
+            YYERROR;
+        }
+        $$ = create_expr_node($1->type);
         
     }|
     ID{
@@ -1075,9 +1197,13 @@ int main() {
     yydebug = 0;
     current_table = enter_new_table(0);
     printf("Starting parser...\n");
+    open_output_file();
+    fprintf(output_file,"class example {\n");
     yyparse();
     dump_current_table();
     leave_table();
     printf("Parser finished.\n");
+    fprintf(output_file,"}\n");
+    fclose(output_file);
     return 0;
 }
