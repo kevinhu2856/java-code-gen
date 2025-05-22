@@ -104,7 +104,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 384 ".\\yprojecty.y"
+#line 387 "yprojecty.y"
 
     int ivalue;
     float fvalue;

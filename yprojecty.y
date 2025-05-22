@@ -254,7 +254,8 @@
         op_equal,
         op_not_equal,
         op_and,
-        op_or
+        op_or,
+        op_not
     }operators;
 
     operators char_to_operator(char op) {
@@ -266,6 +267,7 @@
             case '%': return op_modulus;
             case '<': return op_less;
             case '>': return op_greater;
+            case '!': return op_not;
             default: return -1; // Invalid operator
         }
     }
@@ -321,6 +323,7 @@
             // Logical operators
             case op_and:
             case op_or:
+            case op_not:
                 if (left != TYPE_BOOL || right != TYPE_BOOL) {
                     yyerror("Type error: Logical operations require boolean operands");
                 }
@@ -556,8 +559,8 @@ main_function_declaration:
     {
         enter_new_table(1); // Enter function scope
     }
-     ')' block
-     {
+    ')' block
+    {
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
@@ -843,26 +846,29 @@ loop_statement:
     {
         inside_loop++;
     }
-     '(' expression
-     {
+    '(' expression
+    {
         if ($4->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-     } ')' if_statement
-     {
+    } 
+    ')' if_statement
+    {
         inside_loop--;
     }|
     FOR 
     {
         inside_loop++;
     }
-    '(' simple_statment  expression{
+    '(' simple_statment  expression
+    {
         if ($5->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-    } ';' simple_statment_without_semicolon')' if_statement
+    } 
+    ';' simple_statment_without_semicolon')' if_statement
     {
         
         inside_loop--;
@@ -871,12 +877,14 @@ loop_statement:
     {
         inside_loop++;
     }
-    '(' ID ':' expression DOT_DOT expression{
+    '(' ID ':' expression DOT_DOT expression
+    {
         if ($6->type != TYPE_INT||$8->type != TYPE_INT) {
             fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
             YYERROR;
         }
-    } ')' if_statement
+    } 
+    ')' if_statement
     {
         inside_loop--;
         dump_current_table();
@@ -1055,7 +1063,7 @@ expression:
         free_expr_node($3);
     }|
     '!' expression{
-        $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_equal));
+        $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_not));
         $$->value.bvalue = !$2->value.bvalue;
         free_expr_node($2);
     }|
