@@ -362,11 +362,13 @@
     }
 
     FILE* output_file;
-    void open_output_file() {
-        output_file = fopen("example.j", "w");
+    void open_output_file(char* filename) {
+        char* output_filename = (char*)malloc(strlen(filename) + 7);
+        snprintf(output_filename, strlen(filename) + 7, "%s.class", filename);
+        output_file = fopen(output_filename, "w");
         if (output_file == NULL) {
             fprintf(stderr, "Error opening output file\n");
-            exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
         }
     }
 
@@ -1200,17 +1202,44 @@ expression:
         free_expr_node($2);
     };
 %%
-int main() {
+int main(int argc, char** argv)  {
+
     extern int yydebug;
+    extern FILE *yyin;
     yydebug = 0;
     current_table = enter_new_table(0);
-    printf("Starting parser...\n");
-    open_output_file();
+
+    
+
+    char *input_file_name = argv[1];
+    char classname[256];
+    strncpy(classname, input_file_name, strlen(input_file_name) - 3);
+    classname[strlen(input_file_name) - 3] = '\0'; // Remove .y extension
+
+    char* dot = strrchr(classname, '.');
+    if(dot && strcmp(dot, ".sd") == 0) {
+        *dot = '\0'; 
+    }
+    printf("Class name: %s\n", classname);
+    printf("Input file: %s\n", input_file_name);
+
+    open_output_file(classname);
+
+    FILE *input_file = fopen(input_file_name, "r");
+    if (input_file == NULL) {
+        fprintf(stderr, "Error opening input file: %s\n", input_file_name);
+        return EXIT_FAILURE;
+    }
+    yyin = input_file;
+
     fprintf(output_file,"class example {\n");
+
+    printf("Starting parser...\n");
     yyparse();
     dump_current_table();
     leave_table();
     printf("Parser finished.\n");
+
     fprintf(output_file,"}\n");
     fclose(output_file);
     return 0;
