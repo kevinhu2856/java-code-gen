@@ -1,10 +1,14 @@
-parser: yprojecty.tab.c lex.yy.c
-	gcc -c yprojecty.tab.c
-	gcc -c lex.yy.c
+parser:  yprojecty.tab.o lex.yy.o
 	gcc -o parser yprojecty.tab.o lex.yy.o
+
+lex.yy.o: lex.yy.c
+	gcc -c lex.yy.c
 
 lex.yy.c: scanner.l
 	flex scanner.l
+
+yprojecty.tab.o: yprojecty.tab.c yprojecty.tab.h parser_header.h
+	gcc -c yprojecty.tab.c
 
 yprojecty.tab.c: yprojecty.y
 	bison -d yprojecty.y
