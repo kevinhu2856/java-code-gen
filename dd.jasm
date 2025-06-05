@@ -1,0 +1,20 @@
+class dd 
+{
+method public static INT rr()
+max_stack 15
+max_locals 15
+{
+sipush 0
+ireturn
+}
+method public static void main(java.lang.String[])
+max_stack 15
+max_locals 15
+{
+getstatic java.io.PrintStream java.lang.System.out
+invokestatic INT dd.rr()
+invokevirtual void java.io.PrintStream.println(int)
+return
+return
+}
+}

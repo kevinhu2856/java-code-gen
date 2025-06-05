@@ -142,9 +142,9 @@ premain_identifier_decl:
         // Generate appropriate field type
         const char* java_type;
         switch(current_declaration_type) {
-            case TYPE_INT: java_type = "integer"; break;
+            case TYPE_INT: java_type = "int"; break;
             case TYPE_FLOAT: java_type = "float"; break;
-            case TYPE_BOOL: java_type = "integer"; break;
+            case TYPE_BOOL: java_type = "int"; break;
             //case TYPE_STRING: java_type = "Ljava/lang/String;"; break;
             default: java_type = "I"; break;
         }
@@ -307,6 +307,7 @@ main_function_declaration:
     }
     ')' block
     {
+        fprintf(output_file,"return\n");
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
@@ -620,33 +621,16 @@ argument_list:
 
 
 conditional_statement:
-    IF '(' expression ')' 
-    {
-        fprintf(output_file, "ifeq L%d\n", assembly_label);
-    }
-    if_statement ELSE
+    IF '(' expression ')' if_statement else_statement;
+;
+
+else_statement:
+    ELSE 
     {
         fprintf(output_file, "goto L%d\n", assembly_label+1);
         fprintf(output_file, "L%d:\n", assembly_label);
         assembly_label++;
-    } 
-    if_statement
-    {
-        if ($3->type != TYPE_BOOL) {
-            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
-            YYERROR;
-        }
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
-    }|
-    IF '(' expression ')' if_statement %prec LOWER_THAN_ELSE
-    {
-        if ($3->type != TYPE_BOOL) {
-            fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
-            YYERROR;
-        }
-    }
-;
+    }  if_statement| ;
 
 if_statement:
     {enter_new_table(0,0);}

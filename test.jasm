@@ -1,0 +1,52 @@
+class test 
+{
+field static int a
+method public static INT add(int, int)
+max_stack 15
+max_locals 15
+{
+iload 0
+iload 0
+iadd
+ireturn
+}
+method public static void main(java.lang.String[])
+max_stack 15
+max_locals 15
+{
+sipush 5
+putstatic int test.a
+getstatic int test.a
+sipush 100
+iadd
+istore 0
+getstatic int test.a
+sipush 10
+invokestatic INT test.add(int, int)
+istore 1
+iload 1
+sipush 10
+isub
+ifgt L0
+iconst_0
+goto L1
+L0:
+iconst_1
+L1:
+getstatic java.io.PrintStream java.lang.System.out
+iload 1
+ineg
+invokevirtual void java.io.PrintStream.println(int)
+getstatic java.io.PrintStream java.lang.System.out
+iload 1
+invokevirtual void java.io.PrintStream.println(int)
+ifeq L2
+goto L3
+L2:
+L3:
+getstatic java.io.PrintStream java.lang.System.out
+ldc "Hello World"
+invokevirtual void java.io.PrintStream.println(java.lang.String)
+return
+}
+}
