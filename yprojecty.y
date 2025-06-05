@@ -4,6 +4,14 @@
     //#include "yprojecty.tab.h"
     #include <string.h>
     #include "parser_header.h"
+    #define IS_FUNCTION 1
+    #define NOT_FUNCTION 0
+    #define IS_GLOBAL 1
+    #define NOT_GLOBAL 0
+    #define IS_CONST 1
+    #define NOT_CONST 0
+    int yylex();
+
 
     
 %}
@@ -32,7 +40,7 @@
 %type <svalue> STRING_LITERAL
 %type <svalue> MAIN ID
 %type <dtype> type
-%type <expr_node> expression function_invocation
+%type <expr_node> expression function_invocation const_list
 
 %define parse.error verbose
 %define parse.trace
@@ -65,12 +73,53 @@ pre_main_declaration_list:
     ;
     
 pre_main_const_declaration:
-    CONST type
+    CONST type ID '=' const_list ';'
     {
         current_declaration_type = $2;
+        insert_symbol($3, $2, IS_CONST, NOT_FUNCTION, -1, IS_GLOBAL); // Add constant to global scope
+        Symbol* sym = lookup_symbol($3);
+        switch (sym->type) {
+            case TYPE_INT:
+                sym->value.ivalue = $5->value.ivalue;
+                break;
+            case TYPE_FLOAT:
+                sym->value.fvalue = $5->value.fvalue;
+                break;
+            case TYPE_BOOL:
+                sym->value.bvalue = $5->value.bvalue;
+                break;
+            case TYPE_STRING:
+                sym->value.svalue = strdup($5->value.svalue);
+                break;
+            default:
+                fprintf(stderr, "Error: Unsupported constant type at line %d\n", yylineno);
+                YYERROR;
+        }
     }
-    premain_identifier_list ';'
     ;
+
+const_list:
+    INT_LITERAL{
+        $$ = create_expr_node(TYPE_INT);
+        $$->value.ivalue = $1;
+    }|
+    REAL_LITERAL{
+        $$ = create_expr_node(TYPE_FLOAT);
+        $$->value.fvalue = $1;
+    }|
+    STRING_LITERAL{
+        $$ = create_expr_node(TYPE_STRING);
+        $$->value.svalue = $1;
+    }|
+    TRUE_TOKEN{
+        $$ = create_expr_node(TYPE_BOOL);
+        $$->value.bvalue = 1;
+    }|
+    FALSE_TOKEN{
+        $$ = create_expr_node(TYPE_BOOL);
+        $$->value.bvalue = 0;
+    };
+
 
 pre_main_variable_declaration:
     type
@@ -80,6 +129,7 @@ pre_main_variable_declaration:
     }
     ;
 
+
 premain_identifier_list:
     premain_identifier_decl
     | premain_identifier_decl ',' premain_identifier_list
@@ -88,7 +138,7 @@ premain_identifier_list:
 premain_identifier_decl:
     ID
     {
-        insert_symbol($1, current_declaration_type, 0, 0, -1,1); // Add variable to global scope
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, -1,IS_GLOBAL); // Add variable to global scope
         // Generate appropriate field type
         const char* java_type;
         switch(current_declaration_type) {
@@ -102,7 +152,7 @@ premain_identifier_decl:
     }|
     ID '=' expression
     {
-        insert_symbol($1, current_declaration_type, 0, 0,-1,1); // Add variable to function scope
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION,-1,IS_GLOBAL); // Add variable to function scope
         if($3!=NULL&&!is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($3->type),type_to_string(current_declaration_type), yylineno);
             YYERROR;
@@ -132,15 +182,36 @@ function_declaration:
     
     '(' 
     {
-        insert_symbol($2, $1, 0, 1, -1,1);
+        current_function_name = strdup($2);
+        insert_symbol($2, $1, IS_CONST, IS_FUNCTION, -1,IS_GLOBAL);
         enter_new_table(1,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     }
     parameter_list ')' 
     {
+        has_return = 0; // Reset return flag for this function
+        Symbol* sym = lookup_symbol($2);
+        for(int i=0;i<sym->function_signature.param_count;i++) {
+            if(i > 0) fprintf(output_file, ", ");
+            switch(sym->function_signature.param_types[i]) {
+                case TYPE_INT:
+                    fprintf(output_file, "int");
+                    break;
+                case TYPE_FLOAT:
+                    fprintf(output_file, "float");
+                    break;
+                case TYPE_BOOL:
+                    fprintf(output_file, "int");
+                    break;
+                case TYPE_STRING:
+                    fprintf(output_file, "java.lang.String");
+                    break;
+                default:
+                    fprintf(stderr, "Error: Unsupported parameter type at line %d\n", yylineno);
+                    YYERROR;
+            }
+        }
         current_function_return_type = $1;
-        current_function_name = strdup($2);
-        
         fprintf(output_file,")\n");
         fprintf(output_file,"max_stack 15\n");
         fprintf(output_file,"max_locals 15\n");
@@ -149,23 +220,32 @@ function_declaration:
     
     {
         free(current_function_name);
-
         current_function_name = NULL;
         fprintf(output_file,"}\n");
+        if(current_function_return_type == TYPE_VOID&&has_return) {
+            fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
+            YYERROR;
+        }
+        else if(current_function_return_type != TYPE_VOID&&!has_return) {
+            fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
+            YYERROR;
+        }
+        has_return = 0; // Reset for next function
     }
     |
     type ID 
     
     '(' 
     {
-        insert_symbol($2, $1, 0, 1,-1,1);
+        current_function_name = strdup($2);
+        insert_symbol($2, $1, IS_CONST, IS_FUNCTION,-1,IS_GLOBAL);
         enter_new_table(1,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     } 
     ')' 
     {
         current_function_return_type = $1;
-        current_function_name = strdup($2);
+        has_return = 0; // Reset return flag for this function
         fprintf(output_file,"){\n");
     }
     block
@@ -173,26 +253,36 @@ function_declaration:
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
+        if(current_function_return_type == TYPE_VOID&&has_return) {
+            fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
+            YYERROR;
+        }
+        else if(current_function_return_type != TYPE_VOID&&!has_return) {
+            fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
+            YYERROR;
+        }
+        has_return = 0; // Reset for next function
     }
     ;
 
 parameter_list:
     type ID
     {
-        insert_symbol($2, $1, 0, 0,globel_symbol_label,0); // Add parameter to function scope
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Add parameter to function scope
         globel_symbol_label++;
-        fprintf(output_file, "%s", type_to_string($1));
+        Symbol* func=lookup_symbol(current_function_name);
+        func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
+        func->function_signature.param_count ++;
     }|
     type ID 
     {
-        insert_symbol($2, $1, 0, 0,globel_symbol_label,0); // Add parameter to function scope
-        globel_symbol_label++;
-        fprintf(output_file, "%s", type_to_string($1));
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); 
+        Symbol* func=lookup_symbol(current_function_name);
+        func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
+        func->function_signature.param_count ++;
+        
     }
-    ','
-    {
-        fprintf(output_file, ", ");
-    } parameter_list
+    ',' parameter_list
     ;
 
 
@@ -201,7 +291,7 @@ main_function_declaration:
     {
         current_function_return_type = TYPE_VOID;
         current_function_name = strdup("main");
-        insert_symbol("main", TYPE_VOID, 0, 1,-1,1);
+        insert_symbol("main", TYPE_VOID, IS_CONST, IS_FUNCTION,-1,IS_GLOBAL);
         globel_symbol_label = 0; // Reset global symbol label for main function
         fprintf(output_file,"method public static void main(java.lang.String[])\n");
         fprintf(output_file,"max_stack 15\n");
@@ -221,11 +311,29 @@ main_function_declaration:
     ;
 
 const_declaration:
-    CONST type 
+    CONST type ID '=' const_list ';'
     {
         current_declaration_type = $2;
-    }
-    identifier_list ';'
+        insert_symbol($3, $2, IS_CONST, NOT_FUNCTION, -1, NOT_GLOBAL); // Add constant to global scope
+        Symbol* sym = lookup_symbol($3);
+        switch (sym->type) {
+            case TYPE_INT:
+                sym->value.ivalue = $5->value.ivalue;
+                break;
+            case TYPE_FLOAT:
+                sym->value.fvalue = $5->value.fvalue;
+                break;
+            case TYPE_BOOL:
+                sym->value.bvalue = $5->value.bvalue;
+                break;
+            case TYPE_STRING:
+                sym->value.svalue = strdup($5->value.svalue);
+                break;
+            default:
+                fprintf(stderr, "Error: Unsupported constant type at line %d\n", yylineno);
+                YYERROR;
+        }
+    }   
     ;
 
 variable_declaration:
@@ -240,12 +348,12 @@ identifier_list:
 identifier_decl:
     ID
     {
-        insert_symbol($1, current_declaration_type, 0, 0, globel_symbol_label,0);
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
         globel_symbol_label++;
     }|
     ID '=' expression
     {
-        insert_symbol($1, current_declaration_type, 0, 0, globel_symbol_label,0);
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
         globel_symbol_label++;
         if($3 != NULL && !is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", 
@@ -275,7 +383,7 @@ array_declaration:
     ID 
     {
         current_declaration_type = $1;
-        insert_symbol($2, TYPE_ARRAY, 0, 0,globel_symbol_label,0); // Record as array type
+        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Record as array type
         globel_symbol_label++;
     }
     array_size_or_location ';'
@@ -314,7 +422,16 @@ type:
 
 block:
     '{'
-    statement_list '}'
+    statement_list 
+
+    {
+        if(current_declaration_type==VOID&&!has_return) {
+            fprintf(output_file, "return\n");
+            has_return = 1; // Mark that this block has a return statement
+        }
+    }
+    '}'
+    
     {
         dump_current_table();
         leave_table();
@@ -323,6 +440,12 @@ block:
     }
     |
     '{'
+    {
+        if(current_declaration_type==VOID&&!has_return) {
+            fprintf(output_file, "return\n");
+            has_return = 1; // Mark that this block has a return statement
+        }
+    }
     '}'
     {
         dump_current_table();
@@ -378,21 +501,21 @@ variable_assignment:
         } else {
             if (sym->type == TYPE_INT) {
                 sym->value.ivalue = $3->value.ivalue;
-                if(sym->variable_label == -1) {
+                if(sym->is_global == 1) {
                     fprintf(output_file, "putstatic int %s.%s\n",classname, sym->name);
                 } else {
                     fprintf(output_file, "istore %d\n", sym->variable_label);
                 }
             } else if (sym->type == TYPE_FLOAT) {
                 sym->value.fvalue = $3->value.fvalue;
-                if(sym->variable_label == -1) {
+                if(sym->is_global == 1) {
                     fprintf(output_file, "putstatic float %s.%s\n",classname, sym->name);
                 } else {
                     fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
                 }
             } else if (sym->type == TYPE_BOOL) {
                 sym->value.bvalue = $3->value.bvalue;
-                if(sym->variable_label == -1) {
+                if(sym->is_global == 1) {
                     fprintf(output_file, "putstatic int %s.%s\n",classname, sym->name);
                 } else {
                     fprintf(output_file, "istore %d\n", sym->variable_label);
@@ -400,14 +523,14 @@ variable_assignment:
             } else if (sym->type == TYPE_STRING) {
                 if (sym->value.svalue) free(sym->value.svalue);  // Free old string
                 sym->value.svalue = strdup($3->value.svalue);
-                if(sym->variable_label == -1) {
+                if(sym->is_global == 1) {
                     fprintf(output_file, "putstatic java/lang/String %s.%s\n",classname, sym->name);
                 } else {
                     fprintf(output_file, "astore %d\n", sym->variable_label);
                 }
             }
         }
-        fprintf(output_file, "istore %d\n", sym->variable_label);
+        //fprintf(output_file, "istore %d\n", sym->variable_label);
         free_expr_node($3);
     }|
     ID array_size_or_location '=' expression
@@ -433,6 +556,7 @@ function_invocation:
     {
         dump_current_table();
         Symbol* sym = lookup_symbol($1);
+        
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
             YYERROR;
@@ -443,10 +567,35 @@ function_invocation:
         }
         $$= create_expr_node(sym->type);
         fprintf(output_file, "invoke static %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+        for(int i=0;i<sym->function_signature.param_count;i++) {
+            if(i > 0) fprintf(output_file, ", ");
+            switch(sym->function_signature.param_types[i]) {
+                case TYPE_INT:
+                    fprintf(output_file, "int");
+                    break;
+                case TYPE_FLOAT:
+                    fprintf(output_file, "float");
+                    break;
+                case TYPE_BOOL:
+                    fprintf(output_file, "int");
+                    break;
+                case TYPE_STRING:
+                    fprintf(output_file, "java.lang.String");
+                    break;
+                default:
+                    fprintf(stderr, "Error: Unsupported parameter type at line %d\n", yylineno);
+                    YYERROR;
+            }
+        }
+        fprintf(output_file, ")\n");
         // Here we would check argument types and count
     }|
-    ID '(' ')'
+    ID '('{
+        Symbol* sym = lookup_symbol($1);
+        fprintf(output_file, "invoke static %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+    } ')'
     {
+        fprintf(output_file, ")\n");
         Symbol* sym = lookup_symbol($1);
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
@@ -462,27 +611,39 @@ function_invocation:
 
 argument_list:
     expression|
-    expression ',' argument_list
+    expression ',' argument_list{
+    }
     ;
 
 
 conditional_statement:
-    IF '(' expression ')' if_statement ELSE if_statement
+    IF '(' expression ')' 
+    {
+        fprintf(output_file, "ifeq L%d\n", assembly_label);
+    }
+    if_statement ELSE
+    {
+        fprintf(output_file, "goto L%d\n", assembly_label+1);
+        fprintf(output_file, "L%d:\n", assembly_label);
+        assembly_label++;
+    } 
+    if_statement
     {
         if ($3->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
             YYERROR;
         }
+        fprintf(output_file, "L%d:\n", assembly_label);
+        assembly_label++;
     }|
-    IF '(' expression')' if_statement 
+    IF '(' expression ')' if_statement %prec LOWER_THAN_ELSE
     {
         if ($3->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in if statement must be boolean at line %d\n", yylineno);
             YYERROR;
         }
     }
-    %prec LOWER_THAN_ELSE
-    ;
+;
 
 if_statement:
     {enter_new_table(0,0);}
@@ -549,8 +710,39 @@ loop_statement:
 
 
 print_statement:
-    PRINT expression |
-    PRINTLN expression ;
+    PRINT{
+        fprintf(output_file, "getstatic java.io.PrintStream java.lang.System.out\n");
+    } expression {
+        if ($3->type == TYPE_INT) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+        } else if ($3->type == TYPE_FLOAT) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(float)\n");
+        } else if ($3->type == TYPE_BOOL) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+        } else if ($3->type == TYPE_STRING) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(java.lang.String)\n");
+        } else {
+            fprintf(stderr, "Error: Cannot print type '%s' at line %d\n", type_to_string($3->type), yylineno);
+            YYERROR;
+        }
+    }
+    |
+    PRINTLN{
+        fprintf(output_file, "getstatic java.io.PrintStream java.lang.System.out\n");
+    } expression{
+        if ($3->type == TYPE_INT) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+        } else if ($3->type == TYPE_FLOAT) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(float)\n");
+        } else if ($3->type == TYPE_BOOL) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+        } else if ($3->type == TYPE_STRING) {
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(java.lang.String)\n");
+        } else {
+            fprintf(stderr, "Error: Cannot print type '%s' at line %d\n", type_to_string($3->type), yylineno);
+            YYERROR;
+        }
+    } ;
 
 
 read_statement:
@@ -644,8 +836,14 @@ return_statement:
             yyerror("Cannot return a value from a void function");
             YYERROR;
         }
+        if (!is_assignment_compatible(current_function_return_type, $2->type)) {
+            fprintf(stderr, "Error: Cannot return %s from function returning %s at line %d\n",
+                   type_to_string($2->type), type_to_string(current_function_return_type), yylineno);
+            YYERROR;
+        }
+        has_return = 1; // Mark that this function has a return statement
         fprintf(output_file, "ireturn\n");
-        // Additional type checking would go here
+
     }|
     RETURN ';'
     {
@@ -656,8 +854,9 @@ return_statement:
         if (current_function_return_type != TYPE_VOID) {
             yyerror("Non-void function must return a value");
             YYERROR;
-        }
-        fprintf(output_file, "ireturn\n");
+        } 
+        has_return = 1; // Mark that this function has a return statement
+        fprintf(output_file, "return\n");
     };
 
     
@@ -790,6 +989,7 @@ expression:
     STRING_LITERAL{
         $$ = create_expr_node(TYPE_STRING);
         $$->value.svalue = strdup($1);
+        fprintf(output_file, "ldc \"%s\"\n", $1);
     }|
     TRUE_TOKEN{
         $$ = create_expr_node(TYPE_BOOL);
@@ -825,7 +1025,26 @@ expression:
         } else if (sym->type == TYPE_STRING) {
             $$->value.svalue = strdup(sym->value.svalue);
         }
-        if (sym->is_global == 1) {
+        if (sym->is_const) {
+            switch (sym->type) {
+                case TYPE_INT:
+                    fprintf(output_file, "sipush %d\n", sym->value.ivalue);
+                    break;
+                case TYPE_FLOAT:
+                    fprintf(output_file, "ldc %f\n", sym->value.fvalue);
+                    break;
+                case TYPE_BOOL:
+                    fprintf(output_file, "sipush %d\n", sym->value.bvalue);
+                    break;
+                case TYPE_STRING:
+                    fprintf(output_file, "ldc \"%s\"\n", sym->value.svalue);
+                    break;
+                default:
+                    yyerror("Unsupported constant type");
+                    YYERROR;
+            }
+        }
+        else if (sym->is_global == 1) {
             fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
         } else {
             fprintf(output_file, "iload %d\n", sym->variable_label);
@@ -970,6 +1189,7 @@ int main(int argc, char** argv)  {
 
     printf("Starting parser...\n");
     yyparse();
+    dump_current_table();
     leave_table();
     printf("Parser finished.\n");
 

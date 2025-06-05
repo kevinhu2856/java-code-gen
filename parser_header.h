@@ -54,9 +54,16 @@ typedef enum{
         }
     }
 
+
     void yyerror(const char *s) {
         fprintf(stderr, "Error: %s\n at line %d, near %s\n", s , yylineno, yytext);
     }
+    typedef struct FunctionSignature {
+        DataType return_type;
+        int param_count;
+        DataType param_types[16]; // Array of parameter types
+    }FunctionSignature;
+
     typedef struct Symbol{
         char *name;
         union {
@@ -72,8 +79,11 @@ typedef enum{
         int is_const;
         int is_function;
         int is_global;
+        FunctionSignature function_signature; // For function symbols
         struct Symbol *next;
     }Symbol;
+
+    
 
     typedef struct SymbolTable{
         Symbol* symbols_list;
@@ -150,7 +160,15 @@ typedef enum{
             }
             printf(", label: %d", symbols_label);
             printf(", Global: %s", symbols->is_global ? "Yes" : "No");
+            if (symbols->is_function) {
+                printf(", param_count: %d", symbols->function_signature.param_count);
+                for (int i = 0; i < symbols->function_signature.param_count; i++) {
+                    printf(", param_type[%d]: %s", i, type_to_string(symbols->function_signature.param_types[i]));
+                }
+            }
+            
             printf("\n");
+
             symbols = symbols->next;
         }
     }
@@ -242,6 +260,7 @@ typedef enum{
         new_symbol->variable_label = label;
         new_symbol->is_global = is_global;
         new_symbol->next = NULL;
+        new_symbol->function_signature.param_count = 0; 
         
         // Set array info if applicable
         if (type == TYPE_ARRAY) {
@@ -391,3 +410,4 @@ typedef enum{
 
     char classname[256];
     int assembly_label = 0;
+    int has_return = 0;
