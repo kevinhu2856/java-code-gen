@@ -411,3 +411,4 @@ typedef enum{
     char classname[256];
     int assembly_label = 0;
     int has_return = 0;
+    int currently_in_method = 0;

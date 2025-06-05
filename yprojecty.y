@@ -218,12 +218,15 @@ function_declaration:
         fprintf(output_file,"max_stack 15\n");
         fprintf(output_file,"max_locals 15\n");
         fprintf(output_file,"{\n");
+
+        currently_in_method=1;
     }block 
     
     {
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
+        currently_in_method=0;
         if(current_function_return_type == TYPE_VOID&&has_return) {
             fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
             YYERROR;
@@ -252,12 +255,14 @@ function_declaration:
         fprintf(output_file,"max_stack 15\n");
         fprintf(output_file,"max_locals 15\n");
         fprintf(output_file,"{\n");
+        currently_in_method=1;
     }
     block
     {
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
+        currently_in_method=0;
         if(current_function_return_type == TYPE_VOID&&has_return) {
             fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
             YYERROR;
@@ -302,6 +307,7 @@ main_function_declaration:
         fprintf(output_file,"max_stack 15\n");
         fprintf(output_file,"max_locals 15\n");
         fprintf(output_file,"{\n");
+        currently_in_method=1;
     }
     '('
     {
@@ -313,6 +319,7 @@ main_function_declaration:
         free(current_function_name);
         current_function_name = NULL;
         fprintf(output_file,"}\n");
+        currently_in_method=0;
     }
     ;
 
@@ -944,28 +951,32 @@ expression:
     {
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_equal));
         $$->value.bvalue = $1->value.bvalue == $3->value.bvalue;
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "ifeq L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "ifeq L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression NOT_EQUAL expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_not_equal));
         $$->value.bvalue = $1->value.bvalue != $3->value.bvalue;
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "ifne L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "ifne L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -980,56 +991,64 @@ expression:
         } else {
             $$->value.bvalue = 0;  // Default for other types
         }
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "iflt L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "iflt L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression '>' expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater));
         $$->value.bvalue = $1->value.bvalue > $3->value.bvalue;
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "ifgt L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "ifgt L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression LESS_EQUAL expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_less_equal));
         $$->value.bvalue = $1->value.bvalue <= $3->value.bvalue;
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "ifle L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "ifle L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression GREATER_EQUAL expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater_equal));
         $$->value.bvalue = $1->value.bvalue >= $3->value.bvalue;
-        fprintf(output_file, "isub\n", assembly_label);
-        fprintf(output_file, "ifge L%d\n", assembly_label);
-        fprintf(output_file, "iconst_0\n");
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        if(currently_in_method){
+            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "ifge L%d\n", assembly_label);
+            fprintf(output_file, "iconst_0\n");
+            fprintf(output_file, "goto L%d\n", assembly_label+1);
+            fprintf(output_file, "L%d:\niconst_1\n", assembly_label);
+            assembly_label++;
+            fprintf(output_file, "L%d:\n", assembly_label);
+            assembly_label++;
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1056,7 +1075,9 @@ expression:
     INT_LITERAL{
         $$ = create_expr_node(TYPE_INT);
         $$->value.ivalue = $1;
-        fprintf(output_file, "sipush %d\n", $1);
+        if(currently_in_method){
+            fprintf(output_file, "sipush %d\n", $1);
+        } 
     }|
     REAL_LITERAL{
         $$ = create_expr_node(TYPE_FLOAT);
