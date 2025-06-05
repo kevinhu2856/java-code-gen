@@ -40,9 +40,9 @@
 %type <svalue> STRING_LITERAL
 %type <svalue> MAIN ID
 %type <dtype> type
-%type <expr_node> expression function_invocation const_list
+%type <expr_node> expression function_invocation const_list 
 
-%type <ivalue> loop_enter_label loop_exit_label
+%type <ivalue> loop_enter_label loop_exit_label if_exit_label if_false_label
 
 %define parse.error verbose
 %define parse.trace
@@ -623,24 +623,35 @@ argument_list:
 
 
 conditional_statement:
-    IF '(' expression ')' 
+    IF if_false_label '(' expression ')' 
     {
         enter_new_table(0,0); // Enter if scope
-        fprintf(output_file, "ifeq L%d\n", assembly_label);
+        fprintf(output_file, "ifeq L%d\n", $2);
     } 
-    if_statement 
+    if_statement if_exit_label
     {
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\n", assembly_label);
+        fprintf(output_file, "goto L%d\n", $8);
+        fprintf(output_file, "L%d:\n", $2);
         assembly_label++;
     }
     else_statement
     {
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
+        fprintf(output_file, "L%d:\n", $8);
     }
     ;
 ;
+
+if_false_label:
+     {
+        $$=assembly_label;
+        assembly_label++;
+    }
+
+if_exit_label:
+     {
+        $$=assembly_label;
+        assembly_label++;
+     }
 
 else_statement:
     ELSE if_statement
@@ -663,7 +674,7 @@ loop_statement:
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-        fprintf(output_file, "ifeq L%d\\*jump to end*\\ \n", $3); // Jump to end if condition is false
+        fprintf(output_file, "ifeq L%d \n", $3); // Jump to end if condition is false
     }
     ')' if_statement
     {
@@ -683,7 +694,7 @@ loop_statement:
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-        fprintf(output_file, "ifeq L%d \\*jump to end*\\ \n", $6); // Jump to end if condition is false
+        fprintf(output_file, "ifeq L%d  \n", $6); // Jump to end if condition is false
     } 
     ';' simple_statment_without_semicolon')' if_statement
     {
@@ -705,10 +716,18 @@ loop_statement:
     } loop_enter_label loop_exit_label DOT_DOT expression
     {
         Symbol* sym = lookup_symbol($4);
-        fprintf(output_file, "iload %d\n", sym->variable_label); 
+        fprintf(output_file, "iload %d\n", sym->variable_label);
         fprintf(output_file, "isub\n");
-        fprintf(output_file, "sipush 0\n");
-        fprintf(output_file, "ifeq L%d\n", assembly_label); // Jump to end if condition is false
+        fprintf(output_file, "ifge L%d\n", assembly_label); // Jump to end if condition is false
+        fprintf(output_file, "iconst_0\n", assembly_label);
+        fprintf(output_file, "goto L%d\n", assembly_label+1);
+        fprintf(output_file, "L%d:\n", assembly_label);
+        assembly_label++;
+        fprintf(output_file, "iconst_1\n", assembly_label);
+        fprintf(output_file, "L%d:\n", assembly_label);
+        assembly_label++;
+        fprintf(output_file, "ifeq L%d\n", $9);
+        
 
         if ($6->type != TYPE_INT||$11->type != TYPE_INT) {
             fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
@@ -717,15 +736,15 @@ loop_statement:
     } 
     ')' if_statement
     {
+        Symbol* sym = lookup_symbol($4);
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+        fprintf(output_file, "sipush 1\n");
+        fprintf(output_file, "iadd\n");
+        fprintf(output_file, "istore %d\n", sym->variable_label);
+        fprintf(output_file, "goto L%d\n", $8);
+        fprintf(output_file, "L%d:\n", $9);
         inside_loop--;
         dump_current_table();
-        leave_table();
-        // Verify ID is declared and of compatible type with expressions
-        Symbol* sym = lookup_symbol($4);
-        if(sym == NULL) {
-            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $4, yylineno);
-            YYERROR;
-        }
     };
 
 loop_exit_label:
@@ -819,6 +838,7 @@ increment_decrement_statement:
             fprintf(output_file, "fconst_1\n");
         } 
         fprintf(output_file, "iadd\n");
+        fprintf(output_file, "istore %d\n",sym->variable_label);
     }|
     ID MINUS_MINUS 
     {
@@ -846,6 +866,7 @@ increment_decrement_statement:
             fprintf(output_file, "fconst_1\n");
         } 
         fprintf(output_file, "isub\n");
+        fprintf(output_file, "istore %d\n",sym->variable_label);
     }|
     ID array_size_or_location PLUS_PLUS 
     {
