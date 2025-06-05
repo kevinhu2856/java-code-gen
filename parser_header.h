@@ -400,7 +400,7 @@ typedef enum{
     FILE* output_file;
     void open_output_file(char* filename) {
         char* output_filename = (char*)malloc(strlen(filename) + 7);
-        snprintf(output_filename, strlen(filename) + 7, "%s.class", filename);
+        snprintf(output_filename, strlen(filename) + 6, "%s.jasm", filename);
         output_file = fopen(output_filename, "w");
         if (output_file == NULL) {
             fprintf(stderr, "Error opening output file\n");

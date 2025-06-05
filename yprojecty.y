@@ -246,7 +246,10 @@ function_declaration:
     {
         current_function_return_type = $1;
         has_return = 0; // Reset return flag for this function
-        fprintf(output_file,"){\n");
+        fprintf(output_file,")\n");
+        fprintf(output_file,"max_stack 15\n");
+        fprintf(output_file,"max_locals 15\n");
+        fprintf(output_file,"{\n");
     }
     block
     {
@@ -566,7 +569,7 @@ function_invocation:
             YYERROR;
         }
         $$= create_expr_node(sym->type);
-        fprintf(output_file, "invoke static %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+        fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
         for(int i=0;i<sym->function_signature.param_count;i++) {
             if(i > 0) fprintf(output_file, ", ");
             switch(sym->function_signature.param_types[i]) {
@@ -592,7 +595,7 @@ function_invocation:
     }|
     ID '('{
         Symbol* sym = lookup_symbol($1);
-        fprintf(output_file, "invoke static %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+        fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
     } ')'
     {
         fprintf(output_file, ")\n");
@@ -1185,7 +1188,7 @@ int main(int argc, char** argv)  {
     }
     yyin = input_file;
 
-    fprintf(output_file,"class %s {\n", classname);
+    fprintf(output_file,"class %s \n{\n", classname);
 
     printf("Starting parser...\n");
     yyparse();
