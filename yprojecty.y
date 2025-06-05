@@ -42,6 +42,8 @@
 %type <dtype> type
 %type <expr_node> expression function_invocation const_list
 
+%type <ivalue> loop_enter_label loop_exit_label
+
 %define parse.error verbose
 %define parse.trace
 
@@ -621,16 +623,28 @@ argument_list:
 
 
 conditional_statement:
-    IF '(' expression ')' if_statement else_statement;
-;
-
-else_statement:
-    ELSE 
+    IF '(' expression ')' 
+    {
+        enter_new_table(0,0); // Enter if scope
+        fprintf(output_file, "ifeq L%d\n", assembly_label);
+    } 
+    if_statement 
     {
         fprintf(output_file, "goto L%d\n", assembly_label+1);
         fprintf(output_file, "L%d:\n", assembly_label);
         assembly_label++;
-    }  if_statement| ;
+    }
+    else_statement
+    {
+        fprintf(output_file, "L%d:\n", assembly_label);
+        assembly_label++;
+    }
+    ;
+;
+
+else_statement:
+    ELSE if_statement
+    | ;
 
 if_statement:
     {enter_new_table(0,0);}
@@ -639,44 +653,64 @@ if_statement:
     block;
 
 loop_statement:
-    WHILE
+    WHILE loop_enter_label loop_exit_label '('
     {
-        inside_loop++;
+        enter_new_table(0,0); // Enter loop scope
     }
-    '(' expression
+    expression
     {
-        if ($4->type != TYPE_BOOL) {
+        if ($6->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-    } 
+        fprintf(output_file, "ifeq L%d\\*jump to end*\\ \n", $3); // Jump to end if condition is false
+    }
     ')' if_statement
     {
+        fprintf(output_file, "goto L%d\n", $2); // Jump back to loop start
+        fprintf(output_file, "L%d:\n", $3); // Mark loop end
+        assembly_label++;
         inside_loop--;
     }|
     FOR 
     {
         inside_loop++;
+        enter_new_table(0,0); // Enter loop scope
     }
-    '(' simple_statment  expression
+    '(' simple_statment loop_enter_label loop_exit_label expression
     {
-        if ($5->type != TYPE_BOOL) {
+        if ($7->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
+        fprintf(output_file, "ifeq L%d \\*jump to end*\\ \n", $6); // Jump to end if condition is false
     } 
     ';' simple_statment_without_semicolon')' if_statement
     {
-        
+
+        fprintf(output_file, "goto L%d\n", $5); // Jump back to loop start
+        fprintf(output_file, "L%d:\n", $6); // Mark loop end
+        assembly_label++;
         inside_loop--;
     }|
     FOREACH 
     {
         inside_loop++;
+        enter_new_table(0,0); // Enter loop scope
     }
-    '(' ID ':' expression DOT_DOT expression
+    '(' ID ':' expression{
+        Symbol* sym = lookup_symbol($4);
+        fprintf(output_file, "istore %d\n", sym->variable_label);
+
+    } loop_enter_label loop_exit_label DOT_DOT expression
     {
-        if ($6->type != TYPE_INT||$8->type != TYPE_INT) {
+        Symbol* sym = lookup_symbol($4);
+        fprintf(output_file, "iload %d\n", sym->variable_label); 
+        fprintf(output_file, "isub\n");
+        fprintf(output_file, "sipush 0\n");
+        fprintf(output_file, "ifeq L%d\n", assembly_label); // Jump to end if condition is false
+
+        if ($6->type != TYPE_INT||$11->type != TYPE_INT) {
             fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
             YYERROR;
         }
@@ -694,7 +728,20 @@ loop_statement:
         }
     };
 
+loop_exit_label:
+     {
+       $$=assembly_label;
+        assembly_label++;
+    };
 
+loop_enter_label:
+    {
+        inside_loop++;
+        fprintf(output_file, "L%d:\n", assembly_label);
+        $$ = assembly_label;
+        assembly_label++;
+    }
+;
 
 print_statement:
     PRINT{
@@ -761,6 +808,17 @@ increment_decrement_statement:
             fprintf(stderr, "Error: Cannot increment non-numeric type '%s' at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if(sym->is_global == 1) {
+            fprintf(output_file, "getstatic %s.%s\n", classname, $1);
+        } else {
+            fprintf(output_file, "iload %d\n", sym->variable_label);
+        }
+        if (sym->type == TYPE_INT) {
+            fprintf(output_file, "sipush 1\n");
+        } else if (sym->type == TYPE_FLOAT) {
+            fprintf(output_file, "fconst_1\n");
+        } 
+        fprintf(output_file, "iadd\n");
     }|
     ID MINUS_MINUS 
     {
@@ -777,6 +835,17 @@ increment_decrement_statement:
             fprintf(stderr, "Error: Cannot increment non-numeric type '%s' at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if(sym->is_global == 1) {
+            fprintf(output_file, "getstatic %s.%s\n", classname, $1);
+        } else {
+            fprintf(output_file, "iload %d\n", sym->variable_label);
+        }
+        if (sym->type == TYPE_INT) {
+            fprintf(output_file, "sipush 1\n");
+        } else if (sym->type == TYPE_FLOAT) {
+            fprintf(output_file, "fconst_1\n");
+        } 
+        fprintf(output_file, "isub\n");
     }|
     ID array_size_or_location PLUS_PLUS 
     {
