@@ -1316,11 +1316,18 @@ int main(int argc, char** argv)  {
     fprintf(output_file,"class %s \n{\n", classname);
 
     printf("Starting parser...\n");
-    yyparse();
+    if(yyparse()==1) {
+        fprintf(stderr, "Parsing failed.\n");
+        fclose(input_file);
+        fclose(output_file);
+        char jsm_filename[300];
+        snprintf(jsm_filename, sizeof(jsm_filename), "%s.jasm", classname);
+        remove(jsm_filename);
+        return EXIT_FAILURE;
+    }
     dump_current_table();
     leave_table();
     printf("Parser finished.\n");
-
     fprintf(output_file,"}\n");
     fclose(output_file);
     return 0;
