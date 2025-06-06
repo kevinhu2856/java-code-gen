@@ -89,6 +89,19 @@ typedef struct FunctionSignature
     DataType param_types[16]; // Array of parameter types
 } FunctionSignature;
 
+FunctionSignature *create_function_signature(DataType return_type)
+{
+    FunctionSignature *signature = (FunctionSignature *)malloc(sizeof(FunctionSignature));
+    if (!signature)
+    {
+        fprintf(stderr, "Memory allocation failed for function signature\n");
+        exit(EXIT_FAILURE);
+    }
+    signature->return_type = return_type;
+    signature->param_count = 0;
+    return signature;
+}
+
 typedef struct Symbol
 {
     char *name;

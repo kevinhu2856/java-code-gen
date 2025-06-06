@@ -19,6 +19,7 @@
     char* svalue;
     int dtype;
     struct ExpressionNode* expr_node;
+    struct FunctionSignature* func_sign;
 }
 
 %type <ivalue> INT_LITERAL
@@ -27,6 +28,7 @@
 %type <svalue> MAIN ID
 %type <dtype> type
 %type <expr_node> expression function_invocation const_list 
+%type <func_sign> argument_list
 
 %type <ivalue> loop_enter_label loop_exit_label if_exit_label if_false_label
 
@@ -151,13 +153,14 @@ premain_identifier_decl:
                 fprintf(output_file, "field static int %s = %d\n",sym->name, $3->value.ivalue);
             } else if (sym->type == TYPE_FLOAT) {
                 sym->value.fvalue = $3->value.fvalue;
-                fprintf(output_file, "field static int %s = %f\n",sym->name, $3->value.ivalue);
+                fprintf(output_file, "field static float %s = %f\n",sym->name, $3->value.fvalue);
             } else if (sym->type == TYPE_BOOL) {
                 sym->value.bvalue = $3->value.bvalue;
                 fprintf(output_file, "field static int %s = %d\n",sym->name, $3->value.ivalue);
             } else if (sym->type == TYPE_STRING) {
                 sym->value.svalue = strdup($3->value.svalue);
-                fprintf(output_file, "error string assignment\n");
+                fprintf(stderr, "error string assignment\n");
+                YYERROR;
             }
         }
         free_expr_node($3);
@@ -511,7 +514,6 @@ variable_assignment:
                 }
             }
         }
-        //fprintf(output_file, "istore %d\n", sym->variable_label);
         free_expr_node($3);
     }|
     ID array_size_or_location '=' expression
@@ -544,6 +546,18 @@ function_invocation:
             fprintf(stderr, "Error: '%s' is not a function at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if(sym->function_signature.param_count != $3->param_count) {
+            fprintf(stderr, "Error: Function '%s' expects %d parameters but got %d at line %d\n", 
+                   $1, sym->function_signature.param_count, $3->param_count, yylineno);
+            YYERROR;
+        }
+        for(int i=0;i<sym->function_signature.param_count;i++) {
+            if(sym->function_signature.param_types[i] != $3->param_types[i]) {
+                fprintf(stderr, "Error: Function '%s' expects parameter %d to be of type %s but got %s at line %d\n", 
+                       $1, i+1, type_to_string(sym->function_signature.param_types[i]), type_to_string($3->param_types[i]), yylineno);
+                YYERROR;
+            }
+        }
         $$= create_expr_node(sym->type);
         if(currently_in_method){
             fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
@@ -565,18 +579,14 @@ function_invocation:
                     default:
                         fprintf(stderr, "Error: Unsupported parameter type at line %d\n", yylineno);
                         YYERROR;
-            }
+                }
             }
             fprintf(output_file, ")\n");
         }
-        // Here we would check argument types and count
     }|
     ID '(' ')'
     {
         Symbol* sym = lookup_symbol($1);
-        if(currently_in_method){
-            fprintf(output_file, "invokestatic %s %s.%s()\n",type_to_string(sym->type),classname, sym->name);
-        }
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
             YYERROR;
@@ -585,13 +595,32 @@ function_invocation:
             fprintf(stderr, "Error: '%s' is not a function at line %d\n", $1, yylineno);
             YYERROR;
         }
+        if(sym->function_signature.param_count != 0) {
+            fprintf(stderr, "Error: Function '%s' expects %d parameters but got 0 at line %d\n", 
+                   $1, sym->function_signature.param_count, yylineno);
+            YYERROR;
+        }
+        if(currently_in_method){
+            fprintf(output_file, "invokestatic %s %s.%s()\n",type_to_string(sym->type),classname, sym->name);
+        }
         $$= create_expr_node(sym->type);
-        // Check that function doesn't require arguments
+        
     };
 
 argument_list:
-    expression|
-    expression ',' argument_list{
+    expression
+    {
+        $$ = create_function_signature($1->type); // Create a new function signature
+        $$->param_types[0] = $1->type; // Store type of this argument
+        $$->param_count = 1; // Initialize count to 1
+        free_expr_node($1); // Free the expression node after storing its type
+    }|
+    expression ',' argument_list
+    {
+        $$=$3;
+        $$->param_types[$$->param_count] = $1->type; // Store type of this argument
+        $$->param_count++;
+        free_expr_node($1); // Free the expression node after storing its type
     }
     ;
 
@@ -808,10 +837,11 @@ increment_decrement_statement:
         }
         if (sym->type == TYPE_INT) {
             fprintf(output_file, "sipush 1\n");
+            fprintf(output_file, "iadd\n");
         } else if (sym->type == TYPE_FLOAT) {
             fprintf(output_file, "fconst_1\n");
+            fprintf(output_file, "fadd\n");
         } 
-        fprintf(output_file, "iadd\n");
         fprintf(output_file, "istore %d\n",sym->variable_label);
     }|
     ID MINUS_MINUS 
@@ -836,10 +866,11 @@ increment_decrement_statement:
         }
         if (sym->type == TYPE_INT) {
             fprintf(output_file, "sipush 1\n");
+            fprintf(output_file, "isub\n");
         } else if (sym->type == TYPE_FLOAT) {
             fprintf(output_file, "fconst_1\n");
+            fprintf(output_file, "fsub\n");
         } 
-        fprintf(output_file, "isub\n");
         fprintf(output_file, "istore %d\n",sym->variable_label);
     }|
     ID array_size_or_location PLUS_PLUS 
@@ -1092,6 +1123,10 @@ expression:
         Symbol* sym = lookup_symbol($1);
         if(sym == NULL) {
             fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if(sym->is_function) {
+            fprintf(stderr, "Error: '%s' is a function, not a variable at line %d\n", $1, yylineno);
             YYERROR;
         }
         $$ = create_expr_node(sym->type);
