@@ -30,8 +30,7 @@
 %type <expr_node> expression function_invocation const_list 
 %type <func_sign> argument_list
 
-%type <ivalue> loop_enter_label loop_exit_label if_exit_label if_false_label
-
+%type <ivalue> loop_boolean_point loop_statement_point loop_exe_point loop_exit_point if_exit_label if_false_label
 %define parse.error verbose
 %define parse.trace
 
@@ -280,6 +279,7 @@ parameter_list:
     type ID 
     {
         insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); 
+        globel_symbol_label++;
         Symbol* func=lookup_symbol(current_function_name);
         func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
         func->function_signature.param_count ++;
@@ -458,7 +458,8 @@ simple_statment:
     variable_assignment ';'|
     print_statement ';'|
     read_statement ';' |
-    increment_decrement_statement ';';
+    increment_decrement_statement ';'|
+     ';';
 
 simple_statment_without_semicolon:
     variable_assignment|
@@ -667,44 +668,56 @@ if_statement:
     block;
 
 loop_statement:
-    WHILE loop_enter_label loop_exit_label '('
+    WHILE  '(' loop_boolean_point loop_exe_point loop_exit_point
     {
         enter_new_table(0,0); // Enter loop scope
+        fprintf(output_file, "L%d:\n", $3); //mark loop start
     }
     expression
     {
-        if ($6->type != TYPE_BOOL) {
-            fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
-            YYERROR;
-        }
-        fprintf(output_file, "ifeq L%d \n", $3); // Jump to end if condition is false
-    }
-    ')' if_statement
-    {
-        fprintf(output_file, "goto L%d\n", $2); // Jump back to loop start
-        fprintf(output_file, "L%d:\n", $3); // Mark loop end
-        assembly_label++;
-        inside_loop--;
-    }|
-    FOR 
-    {
-        inside_loop++;
-        enter_new_table(0,0); // Enter loop scope
-    }
-    '(' simple_statment loop_enter_label loop_exit_label expression
-    {
+        fprintf(output_file, "ifeq L%d\n", $5); //goto end if condition is false
         if ($7->type != TYPE_BOOL) {
             fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
             YYERROR;
         }
-        fprintf(output_file, "ifeq L%d  \n", $6); // Jump to end if condition is false
-    } 
-    ';' simple_statment_without_semicolon')' if_statement
+    }
+    ')' if_statement
     {
-
-        fprintf(output_file, "goto L%d\n", $5); // Jump back to loop start
-        fprintf(output_file, "L%d:\n", $6); // Mark loop end
-        assembly_label++;
+        fprintf(output_file, "goto L%d\n", $3); //goto boolean point
+        fprintf(output_file, "L%d:\n", $5); // mark loop end
+        inside_loop--;
+    }|
+    FOR loop_boolean_point loop_statement_point loop_exe_point loop_exit_point
+    {
+        inside_loop++;
+        enter_new_table(0,0);
+    }
+    '(' simple_statment
+    {
+        fprintf(output_file, "L%d:\n", $2);// mark boolean point (loop start)
+    }  
+    expression
+    {
+        if ($10->type != TYPE_BOOL) {
+            fprintf(stderr, "Error: Condition in while loop must be boolean at line %d\n", yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "ifeq L%d\n", $5); // Jump to end if condition is false
+        fprintf(output_file, "goto L%d\n", $4); //jump to loop body
+    } 
+    ';' 
+    {
+        fprintf(output_file, "L%d:\n", $3); // mark statement point
+    }
+     simple_statment_without_semicolon
+    {
+        fprintf(output_file, "goto L%d\n", $2); //jump to boolean point
+        fprintf(output_file, "L%d:\n", $4); //mark exe point
+    }
+    ')'   if_statement
+    {
+        fprintf(output_file, "goto L%d\n", $3); // jump to statement point
+        fprintf(output_file, "L%d:\n", $5); // Mark loop end
         inside_loop--;
     }|
     FOREACH 
@@ -715,8 +728,8 @@ loop_statement:
     '(' ID ':' expression{
         Symbol* sym = lookup_symbol($4);
         fprintf(output_file, "istore %d\n", sym->variable_label);
-
-    } loop_enter_label loop_exit_label DOT_DOT expression
+    }
+    DOT_DOT expression
     {
         Symbol* sym = lookup_symbol($4);
         fprintf(output_file, "iload %d\n", sym->variable_label);
@@ -730,12 +743,6 @@ loop_statement:
         fprintf(output_file, "L%d:\n", assembly_label);
         assembly_label++;
         fprintf(output_file, "ifeq L%d\n", $9);
-        
-
-        if ($6->type != TYPE_INT||$11->type != TYPE_INT) {
-            fprintf(stderr, "Error: Condition in foreach loop must be integer at line %d\n", yylineno);
-            YYERROR;
-        }
     } 
     ')' if_statement
     {
@@ -744,22 +751,31 @@ loop_statement:
         fprintf(output_file, "sipush 1\n");
         fprintf(output_file, "iadd\n");
         fprintf(output_file, "istore %d\n", sym->variable_label);
-        fprintf(output_file, "goto L%d\n", $8);
         fprintf(output_file, "L%d:\n", $9);
         inside_loop--;
         dump_current_table();
     };
 
-loop_exit_label:
+loop_boolean_point:
      {
        $$=assembly_label;
         assembly_label++;
     };
 
-loop_enter_label:
+loop_statement_point:
+     {
+       $$=assembly_label;
+        assembly_label++;
+    };
+
+loop_exe_point:
+{
+       $$=assembly_label;
+        assembly_label++;
+};
+
+loop_exit_point:
     {
-        inside_loop++;
-        fprintf(output_file, "L%d:\n", assembly_label);
         $$ = assembly_label;
         assembly_label++;
     }
@@ -770,13 +786,13 @@ print_statement:
         fprintf(output_file, "getstatic java.io.PrintStream java.lang.System.out\n");
     } expression {
         if ($3->type == TYPE_INT) {
-            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.print(int)\n");
         } else if ($3->type == TYPE_FLOAT) {
-            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(float)\n");
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.print(float)\n");
         } else if ($3->type == TYPE_BOOL) {
-            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(int)\n");
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.print(int)\n");
         } else if ($3->type == TYPE_STRING) {
-            fprintf(output_file, "invokevirtual void java.io.PrintStream.println(java.lang.String)\n");
+            fprintf(output_file, "invokevirtual void java.io.PrintStream.print(java.lang.String)\n");
         } else {
             fprintf(stderr, "Error: Cannot print type '%s' at line %d\n", type_to_string($3->type), yylineno);
             YYERROR;

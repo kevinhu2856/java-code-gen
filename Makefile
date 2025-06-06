@@ -17,4 +17,4 @@ yprojecty.tab.h: yprojecty.y
 	bison -d yprojecty.y
 
 clean:
-	rm -f *.o parser.exe yprojecty.tab.c yprojecty.tab.h lex.yy.c *.jasm *.class
+	rm -f *.o parser.exe parser yprojecty.tab.c yprojecty.tab.h lex.yy.c *.jasm *.class
