@@ -579,36 +579,42 @@ function_invocation:
             YYERROR;
         }
         $$= create_expr_node(sym->type);
-        fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
-        for(int i=0;i<sym->function_signature.param_count;i++) {
-            if(i > 0) fprintf(output_file, ", ");
-            switch(sym->function_signature.param_types[i]) {
-                case TYPE_INT:
-                    fprintf(output_file, "int");
-                    break;
-                case TYPE_FLOAT:
-                    fprintf(output_file, "float");
-                    break;
-                case TYPE_BOOL:
-                    fprintf(output_file, "int");
-                    break;
-                case TYPE_STRING:
-                    fprintf(output_file, "java.lang.String");
-                    break;
-                default:
-                    fprintf(stderr, "Error: Unsupported parameter type at line %d\n", yylineno);
-                    YYERROR;
+        if(currently_in_method){
+            fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+            for(int i=0;i<sym->function_signature.param_count;i++) {
+                if(i > 0) fprintf(output_file, ", ");
+                switch(sym->function_signature.param_types[i]) {
+                    case TYPE_INT:
+                        fprintf(output_file, "int");
+                        break;
+                    case TYPE_FLOAT:
+                        fprintf(output_file, "float");
+                        break;
+                    case TYPE_BOOL:
+                        fprintf(output_file, "int");
+                        break;
+                    case TYPE_STRING:
+                        fprintf(output_file, "java.lang.String");
+                        break;
+                    default:
+                        fprintf(stderr, "Error: Unsupported parameter type at line %d\n", yylineno);
+                        YYERROR;
             }
+            }
+            fprintf(output_file, ")\n");
         }
-        fprintf(output_file, ")\n");
         // Here we would check argument types and count
     }|
     ID '('{
         Symbol* sym = lookup_symbol($1);
-        fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+        if(currently_in_method){
+            fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
+        }
     } ')'
     {
-        fprintf(output_file, ")\n");
+        if(currently_in_method){
+            fprintf(output_file, ")\n");
+        }
         Symbol* sym = lookup_symbol($1);
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
@@ -1055,21 +1061,27 @@ expression:
     expression AND_AND expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_and));
         $$->value.bvalue = $1->value.bvalue && $3->value.bvalue;
-        fprintf(output_file, "iand\n", assembly_label);
+        if(currently_in_method){
+            fprintf(output_file, "iand\n", assembly_label);
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     expression OR_OR expression{
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_or));
         $$->value.bvalue = $1->value.bvalue || $3->value.bvalue;
-        fprintf(output_file, "ior\n", assembly_label);
+        if(currently_in_method){
+            fprintf(output_file, "ior\n", assembly_label);
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
     '!' expression{
         $$ = create_expr_node(check_expression_type($2->type, TYPE_BOOL, op_not));
         $$->value.bvalue = !$2->value.bvalue;
-        fprintf(output_file, "ixor\n");
+        if(currently_in_method){
+            fprintf(output_file, "ixor\n");
+        }
         free_expr_node($2);
     }|
     INT_LITERAL{
@@ -1082,22 +1094,30 @@ expression:
     REAL_LITERAL{
         $$ = create_expr_node(TYPE_FLOAT);
         $$->value.fvalue = $1;
-        fprintf(output_file, "ldc %f\n", $1);
+        if(currently_in_method){
+            fprintf(output_file, "ldc %f\n", $1);
+        }
     }|
     STRING_LITERAL{
         $$ = create_expr_node(TYPE_STRING);
         $$->value.svalue = strdup($1);
-        fprintf(output_file, "ldc \"%s\"\n", $1);
+        if(currently_in_method){
+            fprintf(output_file, "ldc \"%s\"\n", $1);
+        }
     }|
     TRUE_TOKEN{
         $$ = create_expr_node(TYPE_BOOL);
         $$->value.bvalue = 1;
-        fprintf(output_file, "sipush 1\n");
+        if(currently_in_method){
+            fprintf(output_file, "sipush 1\n");
+        }
     }|
     FALSE_TOKEN{
         $$ = create_expr_node(TYPE_BOOL);
         $$->value.bvalue = 0;
-        fprintf(output_file, "sipush 0\n");
+        if(currently_in_method){
+            fprintf(output_file, "sipush 0\n");
+        }
     }|
     function_invocation{
         if ($1->type == TYPE_VOID) {
@@ -1105,7 +1125,6 @@ expression:
             YYERROR;
         }
         $$ = create_expr_node($1->type);
-        
     }|
     ID{
         Symbol* sym = lookup_symbol($1);
@@ -1123,29 +1142,31 @@ expression:
         } else if (sym->type == TYPE_STRING) {
             $$->value.svalue = strdup(sym->value.svalue);
         }
-        if (sym->is_const) {
-            switch (sym->type) {
-                case TYPE_INT:
-                    fprintf(output_file, "sipush %d\n", sym->value.ivalue);
-                    break;
-                case TYPE_FLOAT:
-                    fprintf(output_file, "ldc %f\n", sym->value.fvalue);
-                    break;
-                case TYPE_BOOL:
-                    fprintf(output_file, "sipush %d\n", sym->value.bvalue);
-                    break;
-                case TYPE_STRING:
-                    fprintf(output_file, "ldc \"%s\"\n", sym->value.svalue);
-                    break;
-                default:
-                    yyerror("Unsupported constant type");
-                    YYERROR;
+        if(currently_in_method){
+            if (sym->is_const) {
+                switch (sym->type) {
+                    case TYPE_INT:
+                        fprintf(output_file, "sipush %d\n", sym->value.ivalue);
+                        break;
+                    case TYPE_FLOAT:
+                        fprintf(output_file, "ldc %f\n", sym->value.fvalue);
+                        break;
+                    case TYPE_BOOL:
+                        fprintf(output_file, "sipush %d\n", sym->value.bvalue);
+                        break;
+                    case TYPE_STRING:
+                        fprintf(output_file, "ldc \"%s\"\n", sym->value.svalue);
+                        break;
+                    default:
+                        yyerror("Unsupported constant type");
+                        YYERROR;
+                }
             }
-        }
-        else if (sym->is_global == 1) {
-            fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
-        } else {
-            fprintf(output_file, "iload %d\n", sym->variable_label);
+            else if (sym->is_global == 1) {
+                fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
+            } else {
+                fprintf(output_file, "iload %d\n", sym->variable_label);
+            }
         }
     }|
     ID array_size_or_location{}|
@@ -1163,7 +1184,9 @@ expression:
         } else {
             $$->value.ivalue = $1->value.ivalue + $3->value.ivalue;
         }
-        fprintf(output_file, "iadd\n");
+        if(currently_in_method){
+            fprintf(output_file, "iadd\n");
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1175,7 +1198,9 @@ expression:
         } else {
             $$->value.ivalue = $1->value.ivalue - $3->value.ivalue;
         }
-        fprintf(output_file, "isub\n");
+        if(currently_in_method){
+            fprintf(output_file, "isub\n");
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1187,7 +1212,9 @@ expression:
         } else {
             $$->value.ivalue = $1->value.ivalue * $3->value.ivalue;
         }
-        fprintf(output_file, "imul\n");
+        if(currently_in_method){
+            fprintf(output_file, "imul\n");
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1203,7 +1230,9 @@ expression:
             yyerror("Error: Division by zero");
             YYERROR;
         }
-        fprintf(output_file, "idiv\n");
+        if(currently_in_method){
+            fprintf(output_file, "idiv\n");
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1222,7 +1251,9 @@ expression:
             yyerror("Error: Division by zero");
             YYERROR;
         }
-        fprintf(output_file, "irem\n");
+        if(currently_in_method){
+            fprintf(output_file, "irem\n");
+        }
         free_expr_node($1);
         free_expr_node($3);
     }|
@@ -1245,7 +1276,9 @@ expression:
             yyerror("Type error: Cannot negate non-numeric type");
             YYERROR;
         }
-        fprintf(output_file, "ineg\n");
+        if(currently_in_method){
+            fprintf(output_file, "ineg\n");
+        }
         free_expr_node($2);
     };
 %%
