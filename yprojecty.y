@@ -720,38 +720,63 @@ loop_statement:
         fprintf(output_file, "L%d:\n", $5); // Mark loop end
         inside_loop--;
     }|
-    FOREACH 
+    FOREACH '(' ID ':' expression loop_boolean_point loop_exit_point
+    {
+        Symbol* sym = lookup_symbol($3);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' doesn't exist %d\n", $3, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot use constant '%s' in foreach loop at line %d\n", sym->name, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT) {
+            fprintf(stderr, "Error: Foreach loop variable '%s' must be int %d\n", sym->name, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "istore %d\n", sym->variable_label);
+        sym->value.ivalue = $5->value.ivalue;
+        fprintf(output_file, "L%d:\n", $6); // mark boolean point (loop start)
+    }
+    DOT_DOT expression  ')'
     {
         inside_loop++;
         enter_new_table(0,0); // Enter loop scope
-    }
-    '(' ID ':' expression{
-        Symbol* sym = lookup_symbol($4);
-        fprintf(output_file, "istore %d\n", sym->variable_label);
-    }
-    DOT_DOT expression
-    {
-        Symbol* sym = lookup_symbol($4);
+        Symbol* sym = lookup_symbol($3);
+        if ($5->type != TYPE_INT || $10->type != TYPE_INT) {
+            fprintf(stderr, "Error: Foreach loop range must be integers at line %d\n", yylineno);
+            YYERROR;
+        }
+        
         fprintf(output_file, "iload %d\n", sym->variable_label);
-        fprintf(output_file, "isub\n");
-        fprintf(output_file, "ifge L%d\n", assembly_label); // Jump to end if condition is false
-        fprintf(output_file, "iconst_0\n", assembly_label);
-        fprintf(output_file, "goto L%d\n", assembly_label+1);
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "iconst_1\n", assembly_label);
-        fprintf(output_file, "L%d:\n", assembly_label);
-        assembly_label++;
-        fprintf(output_file, "ifeq L%d\n", $9);
+        fprintf(stderr, "sym: %d exp: %d", sym->value.ivalue,$10->value.ivalue); // jump to end if variable >= end value
+        if(sym->value.ivalue < $10->value.ivalue) {
+            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "iflt L%d\n", $7);
+        } else if (sym->value.ivalue > $10->value.ivalue) {
+            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "ifgt L%d\n", $7);
+        }else if (sym->value.ivalue == $10->value.ivalue) {
+            fprintf(output_file, "goto L%d\n", $7);
+        }
     } 
-    ')' if_statement
-    {
-        Symbol* sym = lookup_symbol($4);
-        fprintf(output_file, "iload %d\n", sym->variable_label);
-        fprintf(output_file, "sipush 1\n");
-        fprintf(output_file, "iadd\n");
-        fprintf(output_file, "istore %d\n", sym->variable_label);
-        fprintf(output_file, "L%d:\n", $9);
+    if_statement
+    {   
+        Symbol* sym = lookup_symbol($3);
+        if(sym->value.ivalue < $10->value.ivalue) {
+            fprintf(output_file, "iload %d\n", sym->variable_label);
+            fprintf(output_file, "sipush 1\n");
+            fprintf(output_file, "iadd\n");
+            fprintf(output_file, "istore %d\n", sym->variable_label);
+        } else if (sym->value.ivalue > $10->value.ivalue) {
+            fprintf(output_file, "iload %d\n", sym->variable_label);
+            fprintf(output_file, "sipush 1\n");
+            fprintf(output_file, "isub\n");
+            fprintf(output_file, "istore %d\n", sym->variable_label);
+        }
+        fprintf(output_file, "goto L%d\n", $6); // jump to boolean point
+        fprintf(output_file, "L%d:\n", $7); // mark loop end
         inside_loop--;
         dump_current_table();
     };
