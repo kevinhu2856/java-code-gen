@@ -1,19 +1,5 @@
 %{
-    #include <stdio.h>
-    #include <stdlib.h>
-    //#include "yprojecty.tab.h"
-    #include <string.h>
     #include "parser_header.h"
-    #define IS_FUNCTION 1
-    #define NOT_FUNCTION 0
-    #define IS_GLOBAL 1
-    #define NOT_GLOBAL 0
-    #define IS_CONST 1
-    #define NOT_CONST 0
-    int yylex();
-
-
-    
 %}
 
 %token BOOL BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE EXTERN FALSE_TOKEN FLOAT FOR FOREACH IF INT PRINT PRINTLN READ RETURN STRING SWITCH TRUE_TOKEN VOID WHILE
@@ -223,19 +209,18 @@ function_declaration:
     }block 
     
     {
-        free(current_function_name);
-        current_function_name = NULL;
-        fprintf(output_file,"}\n");
-        currently_in_method=0;
-        if(current_function_return_type == TYPE_VOID&&has_return) {
-            fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
-            YYERROR;
-        }
-        else if(current_function_return_type != TYPE_VOID&&!has_return) {
+        if(current_function_return_type != TYPE_VOID&&has_return==0) {
             fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
             YYERROR;
         }
-        current_function_name = NULL; // Clear function name after processing
+        if(current_function_return_type == TYPE_VOID&&has_return==0){
+            fprintf(output_file,"return\n");
+        }
+        fprintf(output_file,"}\n");
+
+        free(current_function_name);
+        current_function_name = NULL;
+        currently_in_method=0;
         current_function_return_type = VOID; // Reset return type for next function
 
         has_return = 0; // Reset for next function
@@ -262,12 +247,20 @@ function_declaration:
     }
     block
     {
+        fprintf(stderr,"has_return: %d\n", has_return);
+        if(current_function_return_type == TYPE_VOID&&has_return==0){
+            fprintf(output_file,"return\n");
+        }
+        if(current_function_return_type != TYPE_VOID&&has_return==0) {
+            fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file,"}\n");
+
         free(current_function_name);
         current_function_name = NULL;
-        fprintf(output_file,"}\n");
         currently_in_method=0;
         has_return = 0; // Reset for next function
-        current_function_name = NULL; // Clear function name after processing
         current_function_return_type = VOID; // Reset return type for next function
     }
     ;
@@ -298,13 +291,12 @@ main_function_declaration:
     {
         current_function_return_type = TYPE_VOID;
         current_function_name = strdup("main");
+        currently_in_method=1;
         insert_symbol("main", TYPE_VOID, IS_CONST, IS_FUNCTION,-1,IS_GLOBAL);
-        globel_symbol_label = 0; // Reset global symbol label for main function
         fprintf(output_file,"method public static void main(java.lang.String[])\n");
         fprintf(output_file,"max_stack 15\n");
         fprintf(output_file,"max_locals 15\n");
         fprintf(output_file,"{\n");
-        currently_in_method=1;
     }
     '('
     {
@@ -431,37 +423,16 @@ type:
     ;
 
 block:
-    '{'
-    statement_list 
-
-    {
-        if(current_declaration_type==VOID&&!has_return) {
-            fprintf(output_file, "return\n");
-            has_return = 1; // Mark that this block has a return statement
-        }
-    }
-    '}'
-    
+    '{' statement_list '}'
     {
         dump_current_table();
         leave_table();
-        
-        
     }
     |
-    '{'
-    {
-        if(current_declaration_type==VOID&&!has_return) {
-            fprintf(output_file, "return\n");
-            has_return = 1; // Mark that this block has a return statement
-        }
-    }
-    '}'
+    '{' '}'
     {
         dump_current_table();
         leave_table();
-        
-        
     };
 
 statement_list:
