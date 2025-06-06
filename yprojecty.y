@@ -235,6 +235,9 @@ function_declaration:
             fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
             YYERROR;
         }
+        current_function_name = NULL; // Clear function name after processing
+        current_function_return_type = VOID; // Reset return type for next function
+
         has_return = 0; // Reset for next function
     }
     |
@@ -263,15 +266,9 @@ function_declaration:
         current_function_name = NULL;
         fprintf(output_file,"}\n");
         currently_in_method=0;
-        if(current_function_return_type == TYPE_VOID&&has_return) {
-            fprintf(stderr, "Error: Void function '%s' should not have a return statement at line %d\n", current_function_name, yylineno);
-            YYERROR;
-        }
-        else if(current_function_return_type != TYPE_VOID&&!has_return) {
-            fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
-            YYERROR;
-        }
         has_return = 0; // Reset for next function
+        current_function_name = NULL; // Clear function name after processing
+        current_function_return_type = VOID; // Reset return type for next function
     }
     ;
 
@@ -567,9 +564,7 @@ variable_assignment:
 function_invocation:
     ID '(' argument_list ')'
     {
-        dump_current_table();
         Symbol* sym = lookup_symbol($1);
-        
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
             YYERROR;
@@ -605,17 +600,12 @@ function_invocation:
         }
         // Here we would check argument types and count
     }|
-    ID '('{
-        Symbol* sym = lookup_symbol($1);
-        if(currently_in_method){
-            fprintf(output_file, "invokestatic %s %s.%s(",type_to_string(sym->type),classname, sym->name);
-        }
-    } ')'
+    ID '(' ')'
     {
-        if(currently_in_method){
-            fprintf(output_file, ")\n");
-        }
         Symbol* sym = lookup_symbol($1);
+        if(currently_in_method){
+            fprintf(output_file, "invokestatic %s %s.%s()\n",type_to_string(sym->type),classname, sym->name);
+        }
         if(sym == NULL) {
             fprintf(stderr, "Error: Function '%s' not declared at line %d\n", $1, yylineno);
             YYERROR;
@@ -926,7 +916,8 @@ return_statement:
             yyerror("Cannot return a value from a void function");
             YYERROR;
         }
-        if (!is_assignment_compatible(current_function_return_type, $2->type)) {
+        if ($2->type != current_function_return_type) {
+            // If types don't match, report an error
             fprintf(stderr, "Error: Cannot return %s from function returning %s at line %d\n",
                    type_to_string($2->type), type_to_string(current_function_return_type), yylineno);
             YYERROR;
