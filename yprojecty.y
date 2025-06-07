@@ -41,13 +41,7 @@
 
 program:
     pre_main_declaration main_function_declaration
-    {
-        printf("Program parsed successfully.\n");
-    }
     | main_function_declaration
-    {
-        printf("Program parsed successfully without pre main.\n");
-    }
     ;
 
 pre_main_declaration:
@@ -664,7 +658,6 @@ else_statement:
     | ;
 
 if_statement:
-    {enter_new_table(0,0,current_table->local_label);}
     statement
     {dump_current_table();leave_table();}|
     
@@ -1324,11 +1317,12 @@ expression:
     };
 %%
 int main(int argc, char** argv)  {
+    printf("Starting parser...\n");
 
     extern int yydebug;
     extern FILE *yyin;
     yydebug = 0;
-    current_table = enter_new_table(0,1,0);
+    
 
     
 
@@ -1345,10 +1339,8 @@ int main(int argc, char** argv)  {
     if(dot && strcmp(dot, ".sd") == 0) {
         *dot = '\0'; 
     }
-    printf("Class name: %s\n", classname);
-    printf("Input file: %s\n", input_file_name);
 
-    open_output_file(classname);
+    
 
     FILE *input_file = fopen(input_file_name, "r");
     if (input_file == NULL) {
@@ -1356,10 +1348,17 @@ int main(int argc, char** argv)  {
         return EXIT_FAILURE;
     }
     yyin = input_file;
+    if (open_output_file(classname)==1){
+        fclose(output_file);
+        char jsm_filename[300];
+        snprintf(jsm_filename, sizeof(jsm_filename), "%s.jasm", classname);
+        remove(jsm_filename);
+        return EXIT_FAILURE;
+    }
 
     fprintf(output_file,"class %s \n{\n", classname);
-
-    printf("Starting parser...\n");
+    printf("%d: ", yylineno);
+    current_table = enter_new_table(0,1,0);
     if(yyparse()==1) {
         fprintf(stderr, "Parsing failed.\n");
         fclose(input_file);

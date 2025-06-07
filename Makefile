@@ -18,3 +18,7 @@ yprojecty.tab.h: yprojecty.y
 
 clean:
 	rm -f *.o parser.exe parser yprojecty.tab.c yprojecty.tab.h lex.yy.c *.jasm *.class
+
+jasm: 
+	./parser *.sd
+	../javaaPortable/javaa *.jasm
