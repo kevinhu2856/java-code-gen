@@ -629,14 +629,12 @@ argument_list:
 conditional_statement:
     IF if_false_label '(' expression ')' 
     {
-        enter_new_table(0,0); // Enter if scope
         fprintf(output_file, "ifeq L%d\n", $2);
     } 
     if_statement if_exit_label
     {
         fprintf(output_file, "goto L%d\n", $8);
         fprintf(output_file, "L%d:\n", $2);
-        assembly_label++;
     }
     else_statement
     {
@@ -658,13 +656,15 @@ if_exit_label:
      }
 
 else_statement:
-    ELSE if_statement
+    ELSE 
+    if_statement
     | ;
 
 if_statement:
     {enter_new_table(0,0);}
     statement
     {dump_current_table();leave_table();}|
+    {enter_new_table(0,0);}
     block;
 
 loop_statement:
