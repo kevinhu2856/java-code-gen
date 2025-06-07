@@ -31,6 +31,7 @@
 %type <func_sign> argument_list
 
 %type <ivalue> loop_boolean_point loop_statement_point loop_exe_point loop_exit_point if_exit_label if_false_label
+%type <ivalue> else_statement
 %define parse.error verbose
 %define parse.trace
 
@@ -434,7 +435,7 @@ block:
 
 statement_list:
     statement|
-    statement statement_list
+    statement_list statement 
     ;
 
 statement:
@@ -619,24 +620,38 @@ argument_list:
     }
     ;
 
-
 conditional_statement:
-    IF if_false_label '(' expression ')' 
-    {
-        fprintf(output_file, "ifeq L%d\n", $2);
-        enter_new_table(0,0,current_table->local_label); // Enter if scope
-    } 
-    if_statement if_exit_label
-    {
-        fprintf(output_file, "goto L%d\n", $8);
-        fprintf(output_file, "L%d:\n", $2);
-    }
-    else_statement
-    {
-        fprintf(output_file, "L%d:\n", $8);
-    }
-    ;
+    IF if_false_label if_exit_label '(' expression ')' 
+      {
+          fprintf(output_file, "ifeq L%d\n", $2);
+          enter_new_table(0,0,current_table->local_label);
+      }
+      if_statement
+      {    
+        fprintf(output_file, "goto L%d\n", $3);
+        fprintf(output_file,"L%d:\n", $2);
+        fprintf(output_file, "nop\n");
+      }
+      else_statement
+      {
+        fprintf(output_file, "L%d:\n", $3); // Jump to end if no else 
+      }
 ;
+
+else_statement:
+    ELSE if_exit_label
+    {
+        enter_new_table(0,0,current_table->local_label);
+    }
+    if_statement
+    {
+        $$=1;
+    }
+    | /*nothing*/
+    {
+        $$=0;
+    };
+
 
 if_false_label:
      {
@@ -648,14 +663,7 @@ if_exit_label:
      {
         $$=assembly_label;
         assembly_label++;
-     }
-
-else_statement:
-
-    ELSE 
-    {enter_new_table(0,0,current_table->local_label);}
-    if_statement
-    | ;
+    }
 
 if_statement:
     statement
