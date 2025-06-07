@@ -159,7 +159,7 @@ const char *type_to_string(DataType type)
     }
 }
 
-SymbolTable *enter_new_table(int is_function_scope, int is_global_scope)
+SymbolTable *enter_new_table(int is_function_scope, int is_global_scope,int starting_label)
 {
     printf("Entering new symbol table: %s\n",
            is_function_scope ? "Function Scope" : "Block Scope");
@@ -169,7 +169,7 @@ SymbolTable *enter_new_table(int is_function_scope, int is_global_scope)
     new_table->is_function = is_function_scope;
     new_table->is_global = is_global_scope;
     current_table = new_table;
-    new_table->local_label = 0; // Reset local label for new table
+    new_table->local_label = starting_label; // Reset local label for new table
     return new_table;
 }
 

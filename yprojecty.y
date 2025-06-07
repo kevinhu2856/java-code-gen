@@ -174,7 +174,7 @@ function_declaration:
     {
         current_function_name = strdup($2);
         insert_symbol($2, $1, IS_CONST, IS_FUNCTION, -1,IS_GLOBAL);
-        enter_new_table(1,0);
+        enter_new_table(1,0,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     }
     parameter_list ')' 
@@ -234,7 +234,7 @@ function_declaration:
     {
         current_function_name = strdup($2);
         insert_symbol($2, $1, IS_CONST, IS_FUNCTION,-1,IS_GLOBAL);
-        enter_new_table(1,0);
+        enter_new_table(1,0,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     } 
     ')' 
@@ -303,7 +303,7 @@ main_function_declaration:
     }
     '('
     {
-        enter_new_table(1,0); // Enter function scope
+        enter_new_table(1,0,0); // Enter function scope
     }
     ')' block
     {
@@ -353,13 +353,13 @@ identifier_list:
 identifier_decl:
     ID
     {
-        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
-        globel_symbol_label++;
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, current_table->local_label,NOT_GLOBAL);
+        current_table->local_label++;
     }|
     ID '=' expression
     {
-        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
-        globel_symbol_label++;
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, current_table->local_label,NOT_GLOBAL);
+        current_table->local_label++;
         if($3 != NULL && !is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", 
                    type_to_string($3->type), type_to_string(current_declaration_type), yylineno);
@@ -388,8 +388,8 @@ array_declaration:
     ID 
     {
         current_declaration_type = $1;
-        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Record as array type
-        globel_symbol_label++;
+        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); // Record as array type
+        current_table->local_label++;
     }
     array_size_or_location ';'
     ;
@@ -630,7 +630,7 @@ conditional_statement:
     IF if_false_label '(' expression ')' 
     {
         fprintf(output_file, "ifeq L%d\n", $2);
-        enter_new_table(0,0); // Enter if scope
+        enter_new_table(0,0,current_table->local_label); // Enter if scope
     } 
     if_statement if_exit_label
     {
@@ -659,12 +659,12 @@ if_exit_label:
 else_statement:
 
     ELSE 
-    {enter_new_table(0,0);}
+    {enter_new_table(0,0,current_table->local_label);}
     if_statement
     | ;
 
 if_statement:
-    {enter_new_table(0,0);}
+    {enter_new_table(0,0,current_table->local_label);}
     statement
     {dump_current_table();leave_table();}|
     
@@ -673,7 +673,7 @@ if_statement:
 loop_statement:
     WHILE  '(' loop_boolean_point loop_exe_point loop_exit_point
     {
-        enter_new_table(0,0); // Enter loop scope
+        enter_new_table(0,0,current_table->local_label); // Enter loop scope
         fprintf(output_file, "L%d:\n", $3); //mark loop start
     }
     expression
@@ -693,7 +693,7 @@ loop_statement:
     FOR loop_boolean_point loop_statement_point loop_exe_point loop_exit_point
     {
         inside_loop++;
-        enter_new_table(0,0);
+        enter_new_table(0,0,current_table->local_label);
     }
     '(' simple_statment
     {
@@ -745,7 +745,7 @@ loop_statement:
     DOT_DOT expression  ')'
     {
         inside_loop++;
-        enter_new_table(0,0); // Enter loop scope
+        enter_new_table(0,0,current_table->local_label); // Enter loop scope
         Symbol* sym = lookup_symbol($3);
         if ($5->type != TYPE_INT || $10->type != TYPE_INT) {
             fprintf(stderr, "Error: Foreach loop range must be integers at line %d\n", yylineno);
@@ -1328,7 +1328,7 @@ int main(int argc, char** argv)  {
     extern int yydebug;
     extern FILE *yyin;
     yydebug = 0;
-    current_table = enter_new_table(0,1);
+    current_table = enter_new_table(0,1,0);
 
     
 
