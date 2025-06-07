@@ -41,13 +41,7 @@
 
 program:
     pre_main_declaration main_function_declaration
-    {
-        printf("Program parsed successfully.\n");
-    }
     | main_function_declaration
-    {
-        printf("Program parsed successfully without pre main.\n");
-    }
     ;
 
 pre_main_declaration:
@@ -174,7 +168,7 @@ function_declaration:
     {
         current_function_name = strdup($2);
         insert_symbol($2, $1, IS_CONST, IS_FUNCTION, -1,IS_GLOBAL);
-        enter_new_table(1,0);
+        enter_new_table(1,0,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     }
     parameter_list ')' 
@@ -234,7 +228,7 @@ function_declaration:
     {
         current_function_name = strdup($2);
         insert_symbol($2, $1, IS_CONST, IS_FUNCTION,-1,IS_GLOBAL);
-        enter_new_table(1,0);
+        enter_new_table(1,0,0);
         fprintf(output_file,"method public static %s %s(", type_to_string($1), $2);
     } 
     ')' 
@@ -270,16 +264,16 @@ function_declaration:
 parameter_list:
     type ID
     {
-        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Add parameter to function scope
-        globel_symbol_label++;
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); // Add parameter to function scope
+        current_table->local_label++;
         Symbol* func=lookup_symbol(current_function_name);
         func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
         func->function_signature.param_count ++;
     }|
     type ID 
     {
-        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); 
-        globel_symbol_label++;
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); 
+        current_table->local_label++;
         Symbol* func=lookup_symbol(current_function_name);
         func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
         func->function_signature.param_count ++;
@@ -303,7 +297,7 @@ main_function_declaration:
     }
     '('
     {
-        enter_new_table(1,0); // Enter function scope
+        enter_new_table(1,0,0); // Enter function scope
     }
     ')' block
     {
@@ -353,13 +347,13 @@ identifier_list:
 identifier_decl:
     ID
     {
-        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
-        globel_symbol_label++;
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, current_table->local_label,NOT_GLOBAL);
+        current_table->local_label++;
     }|
     ID '=' expression
     {
-        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, globel_symbol_label,NOT_GLOBAL);
-        globel_symbol_label++;
+        insert_symbol($1, current_declaration_type, NOT_CONST, NOT_FUNCTION, current_table->local_label,NOT_GLOBAL);
+        current_table->local_label++;
         if($3 != NULL && !is_assignment_compatible(current_declaration_type, $3->type)) {
             fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", 
                    type_to_string($3->type), type_to_string(current_declaration_type), yylineno);
@@ -388,8 +382,8 @@ array_declaration:
     ID 
     {
         current_declaration_type = $1;
-        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Record as array type
-        globel_symbol_label++;
+        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); // Record as array type
+        current_table->local_label++;
     }
     array_size_or_location ';'
     ;
@@ -630,6 +624,7 @@ conditional_statement:
     IF if_false_label '(' expression ')' 
     {
         fprintf(output_file, "ifeq L%d\n", $2);
+        enter_new_table(0,0,current_table->local_label); // Enter if scope
     } 
     if_statement if_exit_label
     {
@@ -656,21 +651,22 @@ if_exit_label:
      }
 
 else_statement:
+
     ELSE 
+    {enter_new_table(0,0,current_table->local_label);}
     if_statement
     | ;
 
 if_statement:
-    {enter_new_table(0,0);}
     statement
     {dump_current_table();leave_table();}|
-    {enter_new_table(0,0);}
+    
     block;
 
 loop_statement:
     WHILE  '(' loop_boolean_point loop_exe_point loop_exit_point
     {
-        enter_new_table(0,0); // Enter loop scope
+        enter_new_table(0,0,current_table->local_label); // Enter loop scope
         fprintf(output_file, "L%d:\n", $3); //mark loop start
     }
     expression
@@ -690,7 +686,7 @@ loop_statement:
     FOR loop_boolean_point loop_statement_point loop_exe_point loop_exit_point
     {
         inside_loop++;
-        enter_new_table(0,0);
+        enter_new_table(0,0,current_table->local_label);
     }
     '(' simple_statment
     {
@@ -742,7 +738,7 @@ loop_statement:
     DOT_DOT expression  ')'
     {
         inside_loop++;
-        enter_new_table(0,0); // Enter loop scope
+        enter_new_table(0,0,current_table->local_label); // Enter loop scope
         Symbol* sym = lookup_symbol($3);
         if ($5->type != TYPE_INT || $10->type != TYPE_INT) {
             fprintf(stderr, "Error: Foreach loop range must be integers at line %d\n", yylineno);
@@ -752,10 +748,10 @@ loop_statement:
         fprintf(output_file, "iload %d\n", sym->variable_label);
         fprintf(stderr, "sym: %d exp: %d", sym->value.ivalue,$10->value.ivalue); // jump to end if variable >= end value
         if(sym->value.ivalue < $10->value.ivalue) {
-            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "iflt L%d\n", $7);
         } else if (sym->value.ivalue > $10->value.ivalue) {
-            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifgt L%d\n", $7);
         }else if (sym->value.ivalue == $10->value.ivalue) {
             fprintf(output_file, "goto L%d\n", $7);
@@ -992,7 +988,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_equal));
         $$->value.bvalue = $1->value.bvalue == $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifeq L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1008,7 +1004,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_not_equal));
         $$->value.bvalue = $1->value.bvalue != $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifne L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1032,7 +1028,7 @@ expression:
             $$->value.bvalue = 0;  // Default for other types
         }
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "iflt L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1048,7 +1044,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater));
         $$->value.bvalue = $1->value.bvalue > $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifgt L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1064,7 +1060,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_less_equal));
         $$->value.bvalue = $1->value.bvalue <= $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifle L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1080,7 +1076,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater_equal));
         $$->value.bvalue = $1->value.bvalue >= $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifge L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1096,7 +1092,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_and));
         $$->value.bvalue = $1->value.bvalue && $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "iand\n", assembly_label);
+            fprintf(output_file, "iand\n");
         }
         free_expr_node($1);
         free_expr_node($3);
@@ -1105,7 +1101,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_or));
         $$->value.bvalue = $1->value.bvalue || $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "ior\n", assembly_label);
+            fprintf(output_file, "ior\n");
         }
         free_expr_node($1);
         free_expr_node($3);
@@ -1321,11 +1317,12 @@ expression:
     };
 %%
 int main(int argc, char** argv)  {
+    printf("Starting parser...\n");
 
     extern int yydebug;
     extern FILE *yyin;
     yydebug = 0;
-    current_table = enter_new_table(0,1);
+    
 
     
 
@@ -1342,10 +1339,8 @@ int main(int argc, char** argv)  {
     if(dot && strcmp(dot, ".sd") == 0) {
         *dot = '\0'; 
     }
-    printf("Class name: %s\n", classname);
-    printf("Input file: %s\n", input_file_name);
 
-    open_output_file(classname);
+    
 
     FILE *input_file = fopen(input_file_name, "r");
     if (input_file == NULL) {
@@ -1353,10 +1348,17 @@ int main(int argc, char** argv)  {
         return EXIT_FAILURE;
     }
     yyin = input_file;
+    if (open_output_file(classname)==1){
+        fclose(output_file);
+        char jsm_filename[300];
+        snprintf(jsm_filename, sizeof(jsm_filename), "%s.jasm", classname);
+        remove(jsm_filename);
+        return EXIT_FAILURE;
+    }
 
     fprintf(output_file,"class %s \n{\n", classname);
-
-    printf("Starting parser...\n");
+    printf("%d: ", yylineno);
+    current_table = enter_new_table(0,1,0);
     if(yyparse()==1) {
         fprintf(stderr, "Parsing failed.\n");
         fclose(input_file);

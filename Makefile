@@ -18,3 +18,12 @@ yprojecty.tab.h: yprojecty.y
 
 clean:
 	rm -f *.o parser.exe parser yprojecty.tab.c yprojecty.tab.h lex.yy.c *.jasm *.class
+
+jasm: 
+	for f in *.sd; do \
+		./parser "$$f"; \
+		jasmfile="$${f%.sd}.jasm"; \
+		if [ -f "$$jasmfile" ]; then \
+			../javaaPortable/javaa "$$jasmfile"; \
+		fi \
+	done

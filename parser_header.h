@@ -127,6 +127,7 @@ typedef struct SymbolTable
 {
     Symbol *symbols_list;
     struct SymbolTable *outer;
+    int local_label; // For local variable labels
     int is_function;
     int is_global;
 } SymbolTable;
@@ -158,26 +159,28 @@ const char *type_to_string(DataType type)
     }
 }
 
-SymbolTable *enter_new_table(int is_function_scope, int is_global_scope)
+SymbolTable *enter_new_table(int is_function_scope, int is_global_scope,int starting_label)
 {
+    printf("\n-----------------------------EnterTable---------------------------------------------------\n");
     SymbolTable *new_table = (SymbolTable *)malloc(sizeof(SymbolTable));
     new_table->symbols_list = NULL;
     new_table->outer = current_table;
     new_table->is_function = is_function_scope;
     new_table->is_global = is_global_scope;
     current_table = new_table;
+    new_table->local_label = starting_label; // Reset local label for new table
     return new_table;
 }
 
 void dump_current_table()
 {
-    printf("Current Symbol Table:\n");
     SymbolTable *table = current_table;
-
+    printf("\n-----------------------------SymbolTable--------------------------------------------------\n");
     Symbol *symbols = table->symbols_list;
     if (symbols == NULL)
     {
         printf("No symbols in the current table.\n");
+        printf("------------------------------------------------------------------------------------------\n");
         return;
     }
     while (symbols != NULL)
@@ -234,9 +237,10 @@ void dump_current_table()
         }
 
         printf("\n");
-
+        
         symbols = symbols->next;
     }
+    printf("\n------------------------------------------------------------------------------------------\n");
 }
 
 void leave_table()
@@ -358,8 +362,6 @@ void insert_symbol(char *name, DataType type, int is_const, int is_function, int
     {
         current_table_last_symbol()->next = new_symbol;
     }
-    printf("Inserted symbol: %s, Type: %s at line %d\n",
-           name, type_to_string(type), yylineno);
 }
 typedef enum
 {
@@ -524,7 +526,7 @@ void set_current_type(int token)
     }
 }
 
-void open_output_file(char *filename)
+int open_output_file(char *filename)
 {
     char *output_filename = (char *)malloc(strlen(filename) + 7);
     snprintf(output_filename, strlen(filename) + 6, "%s.jasm", filename);
@@ -532,6 +534,7 @@ void open_output_file(char *filename)
     if (output_file == NULL)
     {
         fprintf(stderr, "Error opening output file\n");
-        exit(EXIT_FAILURE);
+        return 1;
     }
+    return 0;
 }
