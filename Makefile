@@ -24,7 +24,7 @@ jasm:
 		./parser "$$f"; \
 		jasmfile="$${f%.sd}.jasm"; \
 		if [ -f "$$jasmfile" ]; then \
-			../javaa/javaa/javaa "$$jasmfile"; \
+			./javaa/javaa/javaa "$$jasmfile"; \
 		fi \
 	done
 
