@@ -127,6 +127,7 @@ typedef struct SymbolTable
 {
     Symbol *symbols_list;
     struct SymbolTable *outer;
+    int local_label; // For local variable labels
     int is_function;
     int is_global;
 } SymbolTable;
@@ -160,18 +161,25 @@ const char *type_to_string(DataType type)
 
 SymbolTable *enter_new_table(int is_function_scope, int is_global_scope)
 {
+    printf("Entering new symbol table: %s\n",
+           is_function_scope ? "Function Scope" : "Block Scope");
     SymbolTable *new_table = (SymbolTable *)malloc(sizeof(SymbolTable));
     new_table->symbols_list = NULL;
     new_table->outer = current_table;
     new_table->is_function = is_function_scope;
     new_table->is_global = is_global_scope;
     current_table = new_table;
+    new_table->local_label = 0; // Reset local label for new table
     return new_table;
 }
 
 void dump_current_table()
 {
     printf("Current Symbol Table:\n");
+    printf("Scope: %s\n",
+           current_table->is_function ? "Function" : "Block");
+    printf("Global: %s\n",
+           current_table->is_global ? "Yes" : "No");
     SymbolTable *table = current_table;
 
     Symbol *symbols = table->symbols_list;
@@ -241,6 +249,7 @@ void dump_current_table()
 
 void leave_table()
 {
+    printf("Leaving symbol table\n");
     if (current_table == NULL)
     {
         fprintf(stderr, "Error: Attempting to leave non-existent table\n");

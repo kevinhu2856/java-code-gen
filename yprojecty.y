@@ -270,16 +270,16 @@ function_declaration:
 parameter_list:
     type ID
     {
-        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); // Add parameter to function scope
-        globel_symbol_label++;
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); // Add parameter to function scope
+        current_table->local_label++;
         Symbol* func=lookup_symbol(current_function_name);
         func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
         func->function_signature.param_count ++;
     }|
     type ID 
     {
-        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,globel_symbol_label,NOT_GLOBAL); 
-        globel_symbol_label++;
+        insert_symbol($2, $1, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); 
+        current_table->local_label++;
         Symbol* func=lookup_symbol(current_function_name);
         func->function_signature.param_types[func->function_signature.param_count] = $1; // Store parameter type 
         func->function_signature.param_count ++;
@@ -630,6 +630,7 @@ conditional_statement:
     IF if_false_label '(' expression ')' 
     {
         fprintf(output_file, "ifeq L%d\n", $2);
+        enter_new_table(0,0); // Enter if scope
     } 
     if_statement if_exit_label
     {
@@ -656,7 +657,9 @@ if_exit_label:
      }
 
 else_statement:
+
     ELSE 
+    {enter_new_table(0,0);}
     if_statement
     | ;
 
@@ -664,7 +667,7 @@ if_statement:
     {enter_new_table(0,0);}
     statement
     {dump_current_table();leave_table();}|
-    {enter_new_table(0,0);}
+    
     block;
 
 loop_statement:
@@ -752,10 +755,10 @@ loop_statement:
         fprintf(output_file, "iload %d\n", sym->variable_label);
         fprintf(stderr, "sym: %d exp: %d", sym->value.ivalue,$10->value.ivalue); // jump to end if variable >= end value
         if(sym->value.ivalue < $10->value.ivalue) {
-            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "iflt L%d\n", $7);
         } else if (sym->value.ivalue > $10->value.ivalue) {
-            fprintf(output_file, "isub\n", $7);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifgt L%d\n", $7);
         }else if (sym->value.ivalue == $10->value.ivalue) {
             fprintf(output_file, "goto L%d\n", $7);
@@ -992,7 +995,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_equal));
         $$->value.bvalue = $1->value.bvalue == $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifeq L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1008,7 +1011,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_not_equal));
         $$->value.bvalue = $1->value.bvalue != $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifne L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1032,7 +1035,7 @@ expression:
             $$->value.bvalue = 0;  // Default for other types
         }
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "iflt L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1048,7 +1051,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater));
         $$->value.bvalue = $1->value.bvalue > $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifgt L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1064,7 +1067,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_less_equal));
         $$->value.bvalue = $1->value.bvalue <= $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifle L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1080,7 +1083,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_greater_equal));
         $$->value.bvalue = $1->value.bvalue >= $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "isub\n", assembly_label);
+            fprintf(output_file, "isub\n");
             fprintf(output_file, "ifge L%d\n", assembly_label);
             fprintf(output_file, "iconst_0\n");
             fprintf(output_file, "goto L%d\n", assembly_label+1);
@@ -1096,7 +1099,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_and));
         $$->value.bvalue = $1->value.bvalue && $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "iand\n", assembly_label);
+            fprintf(output_file, "iand\n");
         }
         free_expr_node($1);
         free_expr_node($3);
@@ -1105,7 +1108,7 @@ expression:
         $$ = create_expr_node(check_expression_type($1->type, $3->type, op_or));
         $$->value.bvalue = $1->value.bvalue || $3->value.bvalue;
         if(currently_in_method){
-            fprintf(output_file, "ior\n", assembly_label);
+            fprintf(output_file, "ior\n");
         }
         free_expr_node($1);
         free_expr_node($3);
