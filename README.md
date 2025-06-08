@@ -11,21 +11,3 @@ use make
 then use 
 
 parser.exe yourfilename.sd
-
-if you're lazy you can 
-
-cd javaa
-
-cd javaa
-
-make
-
-cd ..
-
-cd ..
-
-make jasm
-
-make java
-
-to test all the test files
