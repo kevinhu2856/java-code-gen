@@ -212,6 +212,8 @@ function_declaration:
         if(current_function_return_type == TYPE_VOID&&has_return==0){
             fprintf(output_file,"return\n");
         }
+        fprintf(output_file,"iconst_0\n");
+        fprintf(output_file,"ireturn\n");
         fprintf(output_file,"}\n");
 
         free(current_function_name);
@@ -466,29 +468,20 @@ statement:
     loop_statement|
     return_statement;
 
-nop_steatement:
-    NOP 
-    {
-        fprintf(output_file, "nop\n");
-    };
-
-
 simple_statment:
     variable_assignment ';'|
     print_statement ';'|
     read_statement ';' |
     increment_decrement_statement ';'|
      ';'|
-    arithmetic_statement ';'|
-    nop_steatement ';'|
+    arithmetic_statement ';';
 
 simple_statment_without_semicolon:
     variable_assignment|
     print_statement|
     read_statement|
     increment_decrement_statement|
-    arithmetic_statement|
-    nop_steatement;
+    arithmetic_statement;
 
 arithmetic_statement:
     ID PLUS_EQUAL
@@ -852,7 +845,6 @@ else_statement:
         $$=0;
     };
 
-
 if_false_label:
      {
         $$=assembly_label;
@@ -1044,7 +1036,6 @@ print_statement:
             YYERROR;
         }
     } ;
-
 
 read_statement:
     READ ID {
@@ -1564,9 +1555,6 @@ int main(int argc, char** argv)  {
     extern FILE *yyin;
     yydebug = 0;
     
-
-    
-
     char *input_file_name = argv[1];
 
     if (input_file_name[0] == '.' && (input_file_name[1] == '/' || input_file_name[1] == '\\')) {
@@ -1580,8 +1568,6 @@ int main(int argc, char** argv)  {
     if(dot && strcmp(dot, ".sd") == 0) {
         *dot = '\0'; 
     }
-
-    
 
     FILE *input_file = fopen(input_file_name, "r");
     if (input_file == NULL) {
