@@ -2,3 +2,5 @@
 *.class
 *.jasm
 javaa
+*.zip
+*.tar.gz
