@@ -253,6 +253,8 @@ function_declaration:
             fprintf(stderr, "Error: Function '%s' should return a value at line %d\n", current_function_name, yylineno);
             YYERROR;
         }
+        fprintf(output_file,"iconst_0\n");
+        fprintf(output_file,"ireturn\n");
         fprintf(output_file,"}\n");
 
         free(current_function_name);
