@@ -53,6 +53,11 @@
 "||"       { printf("|| ");return OR_OR; }
 "!"        { printf("! ");return '!'; }
 ".."      { printf(".. ");return DOT_DOT; }
+"+="       { printf("+= ");return PLUS_EQUAL; }
+"-="       { printf("-= ");return MINUS_EQUAL; }
+"*="       { printf("*= ");return STAR_EQUAL; }
+"/="       { printf("/= ");return SLASH_EQUAL; }
+"%="       { printf("%= ");return PERCENT_EQUAL; }
 
 "bool"      { printf("bool "); return BOOL; }
 "break"     { printf("break "); return BREAK; }
@@ -80,6 +85,7 @@
 "true"      { printf("true "); return TRUE_TOKEN; }
 "void"      { printf("void "); return VOID; }
 "while"     { printf("while "); return WHILE; }
+"nop"       { printf("nop "); return NOP; }
 "main"      { printf("main "); return MAIN; }
 
 [a-zA-Z_][a-zA-Z0-9_]*   { 

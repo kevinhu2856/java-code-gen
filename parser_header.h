@@ -39,6 +39,7 @@ typedef struct
 {
     DataType basetype;
     int dimensions;
+    int location;
 } Typeinfo;
 
 typedef struct ExpressionNode

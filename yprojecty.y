@@ -2,9 +2,9 @@
     #include "parser_header.h"
 %}
 
-%token BOOL BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE EXTERN FALSE_TOKEN FLOAT FOR FOREACH IF INT PRINT PRINTLN READ RETURN STRING SWITCH TRUE_TOKEN VOID WHILE
-%token  INT_LITERAL REAL_LITERAL STRING_LITERAL MAIN ID
-%token PLUS_PLUS MINUS_MINUS LESS_EQUAL GREATER_EQUAL EQUAL NOT_EQUAL AND_AND OR_OR DOT_DOT
+%token BOOL BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE EXTERN FALSE_TOKEN FLOAT FOR FOREACH IF INT PRINT PRINTLN READ RETURN STRING SWITCH TRUE_TOKEN VOID WHILE NOP
+%token INT_LITERAL REAL_LITERAL STRING_LITERAL MAIN ID 
+%token PLUS_PLUS MINUS_MINUS LESS_EQUAL GREATER_EQUAL EQUAL NOT_EQUAL AND_AND OR_OR DOT_DOT PLUS_EQUAL MINUS_EQUAL STAR_EQUAL SLASH_EQUAL PERCENT_EQUAL
 %left OR_OR
 %left AND_AND
 %left '!'
@@ -31,7 +31,7 @@
 %type <func_sign> argument_list
 
 %type <ivalue> loop_boolean_point loop_statement_point loop_exe_point loop_exit_point if_exit_label if_false_label
-%type <ivalue> else_statement
+%type <ivalue> else_statement array_size_or_location
 %define parse.error verbose
 %define parse.trace
 
@@ -153,8 +153,7 @@ premain_identifier_decl:
                 fprintf(output_file, "field static int %s = %d\n",sym->name, $3->value.ivalue);
             } else if (sym->type == TYPE_STRING) {
                 sym->value.svalue = strdup($3->value.svalue);
-                fprintf(stderr, "error string assignment\n");
-                YYERROR;
+                fprintf(output_file, "field static java.lang.String %s = \"%s\"\n",sym->name, $3->value.svalue);
             }
         }
         free_expr_node($3);
@@ -383,27 +382,46 @@ array_declaration:
     ID 
     {
         current_declaration_type = $1;
-        insert_symbol($2, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL); // Record as array type
-        current_table->local_label++;
     }
-    array_size_or_location ';'
+    array_size_or_location 
+    {
+        for(int i=0;i<$4;i++) {
+            char buffer[256];
+            sprintf(buffer, "%s[%d]", $2, i);
+            insert_symbol(buffer, TYPE_ARRAY, NOT_CONST, NOT_FUNCTION,current_table->local_label,NOT_GLOBAL);
+            Symbol* sym = lookup_symbol($2);
+            sym->typeinfo.location = i; // Set array size
+            sym->typeinfo.basetype = $1;
+            current_table->local_label++;
+        }
+    }';'
     ;
 
 array_size_or_location:
     '[' expression ']'
     {
         if($2->type != TYPE_INT) {
-            fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
+            fprintf(stderr, "Error: Array size/location must be an integer at line %d\n", yylineno);
             YYERROR;
         }
+        if($2->value.ivalue <= 0) {
+            fprintf(stderr, "Error: Array size/location must be greater than 0 at line %d\n", yylineno);
+            YYERROR;
+        }
+        $$ = $2->value.ivalue; // Store the size/location expression
         free_expr_node($2);
     }|
     '[' expression ']' array_size_or_location
     {
         if($2->type != TYPE_INT) {
-            fprintf(stderr, "Error: Array size must be an integer at line %d\n", yylineno);
+            fprintf(stderr, "Error: Array size/location must be an integer at line %d\n", yylineno);
             YYERROR;
         }
+        if($2->value.ivalue <= 0) {
+            fprintf(stderr, "Error: Array size/location must be greater than 0 at line %d\n", yylineno);
+            YYERROR;
+        }
+        $$ = $2->value.ivalue*$4; // Multiply sizes if nested
         free_expr_node($2);
     }
     ;
@@ -448,19 +466,201 @@ statement:
     loop_statement|
     return_statement;
 
+nop_steatement:
+    NOP 
+    {
+        fprintf(output_file, "nop\n");
+    };
+
 
 simple_statment:
     variable_assignment ';'|
     print_statement ';'|
     read_statement ';' |
     increment_decrement_statement ';'|
-     ';';
+     ';'|
+    arithmetic_statement ';'|
+    nop_steatement ';'|
 
 simple_statment_without_semicolon:
     variable_assignment|
     print_statement|
     read_statement|
-    increment_decrement_statement;
+    increment_decrement_statement|
+    arithmetic_statement|
+    nop_steatement;
+
+arithmetic_statement:
+    ID PLUS_EQUAL
+    {
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot modify constant '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT && sym->type != TYPE_FLOAT) {
+            fprintf(stderr, "Error: Cannot perform arithmetic on non-numeric type '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+    } expression
+    {
+        Symbol* sym = lookup_symbol($1);
+        if($4!=NULL&&!is_assignment_compatible(sym->type, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type), type_to_string(sym->type), yylineno);
+            YYERROR;
+        } else {
+            if (sym->type == TYPE_INT) {
+                fprintf(output_file, "iadd\n");
+                fprintf(output_file, "istore %d\n", sym->variable_label);
+            } else if (sym->type == TYPE_FLOAT) {
+                fprintf(output_file, "fadd\n");
+                fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
+            }
+        }
+        free_expr_node($4);
+    }|
+    ID MINUS_EQUAL 
+    {
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot modify constant '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT && sym->type != TYPE_FLOAT) {
+            fprintf(stderr, "Error: Cannot perform arithmetic on non-numeric type '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+    }
+    expression
+    {
+        Symbol* sym = lookup_symbol($1);
+        if($4!=NULL&&!is_assignment_compatible(sym->type, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type), type_to_string(sym->type), yylineno);
+            YYERROR;
+        } else {
+            if (sym->type == TYPE_INT) {
+                fprintf(output_file, "isub\n");
+                fprintf(output_file, "istore %d\n", sym->variable_label);
+            } else if (sym->type == TYPE_FLOAT) {
+                fprintf(output_file, "fsub\n");
+                fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
+            }
+        }
+        free_expr_node($4);
+    }|
+    ID STAR_EQUAL 
+    {
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot modify constant '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT && sym->type != TYPE_FLOAT) {
+            fprintf(stderr, "Error: Cannot perform arithmetic on non-numeric type '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+    }
+    expression
+    {
+        Symbol* sym = lookup_symbol($1);
+        if($4!=NULL&&!is_assignment_compatible(sym->type, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type), type_to_string(sym->type), yylineno);
+            YYERROR;
+        } else {
+            if (sym->type == TYPE_INT) {
+                fprintf(output_file, "imul\n");
+                fprintf(output_file, "istore %d\n", sym->variable_label);
+            } else if (sym->type == TYPE_FLOAT) {
+                fprintf(output_file, "fmul\n");
+                fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
+            }
+        }
+        free_expr_node($4);
+    }|
+    ID SLASH_EQUAL 
+    {
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot modify constant '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT && sym->type != TYPE_FLOAT) {
+            fprintf(stderr, "Error: Cannot perform arithmetic on non-numeric type '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+    }
+    expression
+    {
+        Symbol* sym = lookup_symbol($1);
+        if($4!=NULL&&!is_assignment_compatible(sym->type, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type), type_to_string(sym->type), yylineno);
+            YYERROR;
+        } else {
+            if (sym->type == TYPE_INT) {
+                fprintf(output_file, "idiv\n");
+                fprintf(output_file, "istore %d\n", sym->variable_label);
+            } else if (sym->type == TYPE_FLOAT) {
+                fprintf(output_file, "fdiv\n");
+                fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
+            }
+        }
+        free_expr_node($4);
+    }|
+    ID PERCENT_EQUAL 
+    {
+        Symbol* sym = lookup_symbol($1);
+        if(sym == NULL) {
+            fprintf(stderr, "Error: Variable '%s' not declared at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->is_const) {
+            fprintf(stderr, "Error: Cannot modify constant '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        if (sym->type != TYPE_INT && sym->type != TYPE_FLOAT) {
+            fprintf(stderr, "Error: Cannot perform arithmetic on non-numeric type '%s' at line %d\n", $1, yylineno);
+            YYERROR;
+        }
+        fprintf(output_file, "iload %d\n", sym->variable_label);
+    }
+    expression
+    {
+        Symbol* sym = lookup_symbol($1);
+        if($4!=NULL&&!is_assignment_compatible(sym->type, $4->type)) {
+            fprintf(stderr, "Error: cannot assign %s to %s at line %d\n", type_to_string($4->type), type_to_string(sym->type), yylineno);
+            YYERROR;
+        } else {
+            if (sym->type == TYPE_INT) {
+                fprintf(output_file, "irem\n");
+                fprintf(output_file, "istore %d\n", sym->variable_label);
+            } else if (sym->type == TYPE_FLOAT) {
+                fprintf(output_file, "frem\n");
+                fprintf(output_file, "fstore %d\n", sym->variable_label);  // Use fstore for float
+            }
+        }
+        free_expr_node($4);
+    };
+    
 
 variable_assignment:
     ID '=' expression 
@@ -1205,9 +1405,42 @@ expression:
                 }
             }
             else if (sym->is_global == 1) {
-                fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
+                switch (sym->type) {
+                    case TYPE_INT:
+                        fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
+                        break;
+                    case TYPE_FLOAT:
+                        fprintf(output_file, "getstatic float %s.%s\n",classname, sym->name);
+                        break;
+                    case TYPE_BOOL:
+                        fprintf(output_file, "getstatic int %s.%s\n",classname, sym->name);
+                        break;
+                    case TYPE_STRING:
+                        fprintf(output_file, "getstatic java.lang.String %s.%s\n",classname, sym->name);
+                        break;
+                    default:
+                        yyerror("Unsupported constant type");
+                        YYERROR;
+                }
+                
             } else {
-                fprintf(output_file, "iload %d\n", sym->variable_label);
+                switch (sym->type) {
+                    case TYPE_INT:
+                        fprintf(output_file, "iload %d\n", sym->variable_label);
+                        break;
+                    case TYPE_FLOAT:
+                        fprintf(output_file, "fload %d\n", sym->variable_label);
+                        break;
+                    case TYPE_BOOL:
+                        fprintf(output_file, "iload %d\n", sym->variable_label);
+                        break;
+                    case TYPE_STRING:
+                        fprintf(output_file, "ldc \"%s\"\n", sym->value.svalue);
+                        break;
+                    default:
+                        yyerror("Unsupported constant type");
+                        YYERROR;
+                }
             }
         }
     }|
