@@ -1,0 +1,6 @@
+void main(){
+    int i;
+    foreach(i:1..10){
+        print i;
+    }
+}
