@@ -125,6 +125,7 @@
 }
 
 "//".*[\n]  { line_count++; }
+"//".*  { line_count++; }
 "/*"([^*]|\*+[^*/])*\*+"/"  {  }
 
 [\n]       { line_count++; printf("\n%d: ", line_count); }
